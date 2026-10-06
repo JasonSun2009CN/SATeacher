@@ -30,15 +30,48 @@ def _question_dict(row: Any, include_answer: bool = True) -> dict:
 
 
 def create_document(
-    title: str, source_filename: str, answers_status: str, question_count: int
+    title: str,
+    source_filename: str,
+    answers_status: str,
+    question_count: int,
+    builtin_key: str | None = None,
 ) -> int:
     from app.db import execute
 
     return execute(
-        "INSERT INTO documents (title, source_filename, satmd_path, answers_status, question_count)"
-        " VALUES (?, ?, ?, ?, ?)",
-        (title, source_filename, str(satmd_path(0)), answers_status, question_count),
+        "INSERT INTO documents (title, source_filename, satmd_path, answers_status,"
+        " question_count, builtin_key) VALUES (?, ?, ?, ?, ?, ?)",
+        (
+            title,
+            source_filename,
+            str(satmd_path(0)),
+            answers_status,
+            question_count,
+            builtin_key,
+        ),
     )
+
+
+def get_by_builtin_key(key: str) -> int | None:
+    """Document id registered for a built-in unit ("bank_id/unit_id"), if any."""
+    from app.db import one
+
+    row = one("SELECT id FROM documents WHERE builtin_key = ?", (key,))
+    return int(row["id"]) if row else None
+
+
+def get_builtin_keys(keys: list[str]) -> dict[str, int]:
+    """Map of builtin_key -> document id for every key that exists."""
+    from app.db import query
+
+    if not keys:
+        return {}
+    marks = ",".join("?" * len(keys))
+    rows = query(
+        f"SELECT builtin_key, id FROM documents WHERE builtin_key IN ({marks})",
+        tuple(keys),
+    )
+    return {row["builtin_key"]: int(row["id"]) for row in rows}
 
 
 def set_satmd_path(doc_id: int) -> None:

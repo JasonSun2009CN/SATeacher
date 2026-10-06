@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import ai, documents, sessions, settings
+from app.api import ai, builtin, documents, sessions, settings
 from app.db import init_db
 
 VERSION = "0.1.0"
@@ -27,6 +27,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(documents.router)
+app.include_router(builtin.router)
 app.include_router(sessions.router)
 app.include_router(settings.router)
 app.include_router(ai.router)

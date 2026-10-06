@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, ApiError, type DocumentSummary } from "../api/client";
+import { api, ApiError, type BuiltinBank, type DocumentSummary } from "../api/client";
+import BuiltinBankCard from "../components/BuiltinBankCard";
 
 function errText(err: unknown): string {
   return err instanceof ApiError ? err.message : String(err);
@@ -8,22 +9,38 @@ function errText(err: unknown): string {
 
 export default function ImportPage() {
   const [docs, setDocs] = useState<DocumentSummary[] | null>(null);
+  const [banks, setBanks] = useState<BuiltinBank[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [imported, setImported] = useState<DocumentSummary | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     try {
       setDocs(await api.listDocuments());
     } catch (err) {
       setError(errText(err));
     }
-  }
+  }, []);
+
+  const refreshBanks = useCallback(async () => {
+    try {
+      setBanks(await api.listBanks());
+    } catch (err) {
+      // the bank list is optional furniture — don't block the import page
+      console.warn("builtin banks unavailable:", err);
+    }
+  }, []);
+
+  /** After adding built-in modules: reload flags + the library in one pass. */
+  const refreshAll = useCallback(async () => {
+    await Promise.all([refresh(), refreshBanks()]);
+  }, [refresh, refreshBanks]);
 
   useEffect(() => {
     void refresh();
-  }, []);
+    void refreshBanks();
+  }, [refresh, refreshBanks]);
 
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -134,6 +151,14 @@ export default function ImportPage() {
             </ul>
           )}
         </section>
+      )}
+
+      {banks && banks.length > 0 && (
+        <div>
+          {banks.map((bank) => (
+            <BuiltinBankCard key={bank.id} bank={bank} onChanged={() => void refreshAll()} />
+          ))}
+        </div>
       )}
 
       <section className="mt-8">

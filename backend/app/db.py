@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS documents (
   satmd_path      TEXT NOT NULL,
   answers_status  TEXT NOT NULL DEFAULT 'none',  -- inline|external|none|pending
   question_count  INTEGER NOT NULL DEFAULT 0,
+  builtin_key     TEXT,                          -- "bank_id/unit_id" for built-in banks
   created_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -154,6 +155,14 @@ def db() -> Iterator[sqlite3.Connection]:
 def init_db() -> None:
     with db() as conn:
         conn.executescript(SCHEMA)
+        # upgrade pre-existing databases: add documents.builtin_key when missing
+        cols = {row["name"] for row in conn.execute("PRAGMA table_info(documents)")}
+        if "builtin_key" not in cols:
+            conn.execute("ALTER TABLE documents ADD COLUMN builtin_key TEXT")
+        conn.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS ux_documents_builtin_key"
+            " ON documents(builtin_key) WHERE builtin_key IS NOT NULL"
+        )
 
 
 def query(sql: str, params: tuple = ()) -> list[sqlite3.Row]:

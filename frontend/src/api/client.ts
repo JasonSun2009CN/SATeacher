@@ -85,6 +85,25 @@ export interface WordGrid {
   rows: string[][];
 }
 
+/** One module of a built-in bank, as listed on the import page. */
+export interface BuiltinUnit {
+  id: string;
+  title: string;
+  module: number | null;
+  questions: number;
+  assets: number;
+  added: boolean;
+  document_id: number | null;
+}
+
+/** A question bank shipped with the app (offline, 0 token). */
+export interface BuiltinBank {
+  id: string;
+  title: string;
+  source: string;
+  units: BuiltinUnit[];
+}
+
 /** Stored LLM API config — the key is write-only and always masked on read. */
 export interface AppSettings {
   provider: "openai" | "anthropic";
@@ -145,6 +164,23 @@ export const api = {
   },
 
   getDocument: (id: number) => request<DocumentSummary>(`/api/documents/${id}`),
+
+  /** Built-in banks shipped with the app — discovered server-side. */
+  listBanks: () => request<BuiltinBank[]>("/api/builtin"),
+
+  /** Add one built-in module to the library (idempotent, 0 token). */
+  addBuiltinUnit: (bankId: string, unitId: string) =>
+    request<{ document_id: number; added: boolean }>(
+      `/api/builtin/${bankId}/units/${unitId}`,
+      { method: "POST" },
+    ),
+
+  /** Add every not-yet-added module of a bank in one request. */
+  addBuiltinAll: (bankId: string) =>
+    request<{ added: number; already: number; document_ids: number[] }>(
+      `/api/builtin/${bankId}/add-all`,
+      { method: "POST" },
+    ),
 
   getQuestions: (id: number) => request<Question[]>(`/api/documents/${id}/questions`),
 
