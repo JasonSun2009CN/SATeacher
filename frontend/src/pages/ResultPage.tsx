@@ -3,6 +3,7 @@ import { Link, useParams, useSearchParams } from "react-router-dom";
 import {
   api,
   ApiError,
+  type ResultItem,
   type SessionDetail,
   type SubmitResult,
 } from "../api/client";
@@ -58,20 +59,53 @@ export default function ResultPage() {
     };
   }, [sessionId]);
 
+  const matchesFilter = (i: ResultItem) =>
+    filter === "all"
+      ? true
+      : filter === "correct"
+        ? i.is_correct === true
+        : i.is_correct === false;
+
   // keep a question selected that is actually visible under the current filter
   useEffect(() => {
     if (!result) return;
-    const ids = result.items
-      .filter((i) =>
-        filter === "all"
-          ? true
-          : filter === "correct"
-            ? i.is_correct === true
-            : i.is_correct === false,
-      )
-      .map((i) => i.question_id);
+    const ids = result.items.filter(matchesFilter).map((i) => i.question_id);
     setSelectedId((prev) => (prev !== null && ids.includes(prev) ? prev : (ids[0] ?? null)));
-  }, [result, filter]);
+  }, [result, filter]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** Select a question in the master-detail view and bring the pane into view. */
+  const selectQuestion = (qid: number) => {
+    setSelectedId(qid);
+    window.setTimeout(
+      () =>
+        document
+          .getElementById("qcontent")
+          ?.scrollIntoView({ behavior: "smooth", block: "start" }),
+      60,
+    );
+  };
+
+  // ← / → move between questions (ignored while typing in the workspace)
+  useEffect(() => {
+    if (!result) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const el = e.target as HTMLElement | null;
+      const tag = el?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el?.isContentEditable)
+        return;
+      const ids = result.items.filter(matchesFilter).map((i) => i.question_id);
+      const idx = selectedId === null ? -1 : ids.indexOf(selectedId);
+      const target = e.key === "ArrowLeft" ? idx - 1 : idx + 1;
+      if (target >= 0 && target < ids.length) {
+        e.preventDefault();
+        selectQuestion(ids[target]);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }); // re-register each render so the closure sees fresh filter/selection
 
   if (error) {
     return (
@@ -95,14 +129,11 @@ export default function ResultPage() {
   const correct = result.items.filter((i) => i.is_correct === true).length;
   const secs = elapsed(detail, t);
 
-  const visible = result.items.filter((item) =>
-    filter === "all"
-      ? true
-      : filter === "correct"
-        ? item.is_correct === true
-        : item.is_correct === false,
-  );
+  const visible = result.items.filter(matchesFilter);
   const selected = result.items.find((i) => i.question_id === selectedId) ?? null;
+  const vIdx = visible.findIndex((i) => i.question_id === selectedId);
+  const prevQ = vIdx > 0 ? visible[vIdx - 1] : null;
+  const nextQ = vIdx >= 0 && vIdx < visible.length - 1 ? visible[vIdx + 1] : null;
 
   // pure statistics for the overview panel
   const wrongList = result.items.filter((i) => i.is_correct === false);
@@ -121,15 +152,11 @@ export default function ResultPage() {
 
   const focusQuestion = (qid: number) => {
     setFilter("all");
-    setSelectedId(qid);
-    window.setTimeout(
-      () =>
-        document
-          .getElementById(`q-${qid}`)
-          ?.scrollIntoView({ behavior: "smooth", block: "center" }),
-      80,
-    );
+    selectQuestion(qid);
   };
+
+  const statusOf = (item: ResultItem): "correct" | "wrong" | "ungraded" =>
+    item.is_correct === true ? "correct" : item.is_correct === false ? "wrong" : "ungraded";
 
   const tabs: { key: Filter; label: string; count: number }[] = [
     { key: "all", label: "All questions", count: result.items.length },
@@ -138,7 +165,7 @@ export default function ResultPage() {
   ];
 
   return (
-    <div className="mx-auto flex w-full max-w-7xl items-start gap-4 px-4 py-8">
+    <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-8 lg:flex-row lg:items-start">
       <div className="min-w-0 flex-1">
       <section className="rounded-xl border bg-white p-6 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -265,123 +292,199 @@ export default function ResultPage() {
         ))}
       </div>
 
-      <div className="mt-4 space-y-4">
-        {visible.length === 0 && (
-          <div className="rounded-xl border bg-white px-4 py-8 text-center text-sm text-slate-500">
-            {filter === "wrong" ? "Nothing wrong here — nice work." : "No questions to show."}
+      {/* master–detail: question index | current question (the workspace stays beside it) */}
+      <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-start">
+        <nav
+          id="qindex"
+          aria-label="Question index"
+          className="w-full shrink-0 rounded-xl border bg-white p-2 lg:sticky lg:top-4 lg:w-40"
+        >
+          <div className="flex items-baseline justify-between px-1 pb-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Questions
+            </span>
+            <span className="text-xs text-slate-400">{visible.length}</span>
           </div>
-        )}
-        {visible.map((item) => (
-          <article
-            key={item.question_id}
-            id={`q-${item.question_id}`}
-            onClick={() => setSelectedId(item.question_id)}
-            className={`cursor-pointer rounded-xl border bg-white p-5 transition ${
-              selectedId === item.question_id
-                ? "ring-2 ring-blue-500"
-                : "hover:border-slate-300 hover:shadow-sm"
-            }`}
-          >
-            <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
-              <span
-                className={`grid h-6 w-6 place-items-center rounded-full text-white ${
-                  item.is_correct === true
-                    ? "bg-emerald-600"
-                    : item.is_correct === false
-                      ? "bg-red-500"
-                      : "bg-slate-400"
-                }`}
-                aria-hidden
-              >
-                {item.is_correct === true ? "✓" : item.is_correct === false ? "✗" : "–"}
-              </span>
-              <span>Question {item.no}</span>
-              <span className="font-normal text-slate-500">
-                {item.sec === "math" ? "Math" : "Reading & Writing"}
-                {item.source ? ` · ${item.source}` : ""}
-              </span>
-            </div>
-
-            {item.material && (
-              <div className="mb-3 rounded-lg border bg-slate-50 p-3 text-sm">
-                <RichText text={item.material} docId={docId} />
-              </div>
-            )}
-
-            <div className="text-[15px]">
-              <RichText text={item.stem} docId={docId} />
-            </div>
-
-            <ul className="mt-3 space-y-2">
-              {item.options.map((option) => {
-                const letter = optionLetter(option);
-                const isAnswer = item.answer === letter;
-                const isChosen = item.chosen === letter;
-                const tone = isAnswer
-                  ? "border-emerald-500 bg-emerald-50"
-                  : isChosen
-                    ? "border-red-400 bg-red-50"
-                    : "border-slate-200";
+          {visible.length === 0 ? (
+            <p className="px-1 pb-1 text-xs text-slate-400">Nothing to show.</p>
+          ) : (
+            <div className="grid grid-cols-8 gap-1.5 sm:grid-cols-10 lg:grid-cols-4">
+              {visible.map((item) => {
+                const status = statusOf(item);
+                const label =
+                  status === "correct"
+                    ? "correct"
+                    : status === "wrong"
+                      ? "wrong"
+                      : "no answer key";
+                const sel = selectedId === item.question_id;
                 return (
-                  <li
-                    key={letter}
-                    className={`flex items-start gap-3 rounded-lg border px-3 py-2 text-sm ${tone}`}
+                  <button
+                    key={item.question_id}
+                    id={`qn-${item.question_id}`}
+                    data-no={item.no}
+                    data-status={status}
+                    aria-label={`Question ${item.no} — ${label}`}
+                    aria-current={sel ? "true" : undefined}
+                    title={`Question ${item.no} · ${label}`}
+                    onClick={() => selectQuestion(item.question_id)}
+                    className={`rounded-md border px-1 py-1.5 text-xs font-semibold transition ${
+                      status === "correct"
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                        : status === "wrong"
+                          ? "border-red-200 bg-red-50 text-red-700"
+                          : "border-slate-200 bg-slate-50 text-slate-500"
+                    } ${sel ? "ring-2 ring-blue-500" : "hover:border-slate-400"}`}
                   >
-                    <span className="font-semibold">{letter}</span>
-                    <span className="flex-1">
-                      <RichText text={option.replace(/^[A-D][.)]\s*/, "")} docId={docId} />
-                    </span>
-                    {isChosen && (
-                      <span
-                        className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-medium ${
-                          isAnswer ? "bg-emerald-600 text-white" : "bg-red-500 text-white"
-                        }`}
-                      >
-                        your answer
-                      </span>
-                    )}
-                    {isAnswer && !isChosen && (
-                      <span className="shrink-0 rounded bg-emerald-600 px-1.5 py-0.5 text-xs font-medium text-white">
-                        correct
-                      </span>
-                    )}
-                  </li>
+                    {item.no}
+                  </button>
                 );
               })}
-            </ul>
+            </div>
+          )}
+        </nav>
 
-            {item.answer === null && (
-              <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                No answer key for this question — fill it in on the answer page.
-              </p>
-            )}
-            {item.is_correct === false && item.explain && (
-              <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm">
-                <div className="mb-1 font-semibold text-blue-900">Explanation</div>
-                <RichText text={item.explain} docId={docId} />
+        <div id="qcontent" className="min-w-0 flex-1">
+          {selected === null ? (
+            <div className="rounded-xl border bg-white px-4 py-8 text-center text-sm text-slate-500">
+              {filter === "wrong" ? "Nothing wrong here — nice work." : "No questions to show."}
+            </div>
+          ) : (
+            <article
+              key={selected.question_id}
+              id={`q-${selected.question_id}`}
+              className="rounded-xl border bg-white p-5 shadow-sm"
+            >
+              <div className="mb-3 flex flex-wrap items-center gap-2 text-sm font-semibold">
+                <span
+                  className={`grid h-6 w-6 place-items-center rounded-full text-white ${
+                    selected.is_correct === true
+                      ? "bg-emerald-600"
+                      : selected.is_correct === false
+                        ? "bg-red-500"
+                        : "bg-slate-400"
+                  }`}
+                  aria-hidden
+                >
+                  {selected.is_correct === true
+                    ? "✓"
+                    : selected.is_correct === false
+                      ? "✗"
+                      : "–"}
+                </span>
+                <span>Question {selected.no}</span>
+                <span className="font-normal text-slate-500">
+                  {selected.sec === "math" ? "Math" : "Reading & Writing"}
+                  {selected.source ? ` · ${selected.source}` : ""}
+                </span>
+                <div className="ml-auto flex items-center gap-2">
+                  <button
+                    onClick={() => prevQ && selectQuestion(prevQ.question_id)}
+                    disabled={!prevQ}
+                    aria-label="Previous question"
+                    title="Previous question (←)"
+                    className="rounded-lg border px-3 py-1 text-sm font-medium hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    ←
+                  </button>
+                  <span className="text-xs font-normal text-slate-400">
+                    {vIdx + 1} / {visible.length}
+                  </span>
+                  <button
+                    onClick={() => nextQ && selectQuestion(nextQ.question_id)}
+                    disabled={!nextQ}
+                    aria-label="Next question"
+                    title="Next question (→)"
+                    className="rounded-lg border px-3 py-1 text-sm font-medium hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    →
+                  </button>
+                </div>
               </div>
-            )}
-          </article>
-        ))}
+
+              {selected.material && (
+                <div className="mb-3 rounded-lg border bg-slate-50 p-3 text-sm">
+                  <RichText text={selected.material} docId={docId} />
+                </div>
+              )}
+
+              <div className="text-[15px]">
+                <RichText text={selected.stem} docId={docId} />
+              </div>
+
+              <ul className="mt-3 space-y-2">
+                {selected.options.map((option) => {
+                  const letter = optionLetter(option);
+                  const isAnswer = selected.answer === letter;
+                  const isChosen = selected.chosen === letter;
+                  const tone = isAnswer
+                    ? "border-emerald-500 bg-emerald-50"
+                    : isChosen
+                      ? "border-red-400 bg-red-50"
+                      : "border-slate-200";
+                  return (
+                    <li
+                      key={letter}
+                      className={`flex items-start gap-3 rounded-lg border px-3 py-2 text-sm ${tone}`}
+                    >
+                      <span className="font-semibold">{letter}</span>
+                      <span className="flex-1">
+                        <RichText text={option.replace(/^[A-D][.)]\s*/, "")} docId={docId} />
+                      </span>
+                      {isChosen && (
+                        <span
+                          className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-medium ${
+                            isAnswer ? "bg-emerald-600 text-white" : "bg-red-500 text-white"
+                          }`}
+                        >
+                          your answer
+                        </span>
+                      )}
+                      {isAnswer && !isChosen && (
+                        <span className="shrink-0 rounded bg-emerald-600 px-1.5 py-0.5 text-xs font-medium text-white">
+                          correct
+                        </span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+
+              {selected.answer === null && (
+                <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                  No answer key for this question — fill it in on the answer page.
+                </p>
+              )}
+              {selected.is_correct === false && selected.explain && (
+                <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm">
+                  <div className="mb-1 font-semibold text-blue-900">Explanation</div>
+                  <RichText text={selected.explain} docId={docId} />
+                </div>
+              )}
+            </article>
+          )}
+        </div>
       </div>
       </div>
 
       {panelOpen && (
-        <ReviewSidebar
-          docId={docId}
-          item={selected}
-          onClose={() => setPanelOpen(false)}
-          onExplainSaved={(qid, content) =>
-            setResult((r) =>
-              r && {
-                ...r,
-                items: r.items.map((i) =>
-                  i.question_id === qid ? { ...i, explain: content } : i,
-                ),
-              },
-            )
-          }
-        />
+        <div className="w-full shrink-0 self-start lg:sticky lg:top-4 lg:w-auto">
+          <ReviewSidebar
+            docId={docId}
+            item={selected}
+            onClose={() => setPanelOpen(false)}
+            onExplainSaved={(qid, content) =>
+              setResult((r) =>
+                r && {
+                  ...r,
+                  items: r.items.map((i) =>
+                    i.question_id === qid ? { ...i, explain: content } : i,
+                  ),
+                },
+              )
+            }
+          />
+        </div>
       )}
     </div>
   );

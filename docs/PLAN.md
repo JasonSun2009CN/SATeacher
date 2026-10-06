@@ -32,6 +32,7 @@ SAT 自动刷题助手：**导入题目文档 → 生成题数并补录答案 �
 | **练习流程（批2）** | 全屏开始屏（`Begin — enter fullscreen`，requestFullscreen 必须用户手势，失败 catch 后继续）→ 做题 → 交卷。源无答案（graded==0）→ 跳 `/doc/:id/answers?session=:sid` 补录 → 「Save & view results」判分；源有答案直接出结果。结果页独立路由 `/session/:sid/result`：汇总卡（分数/用时/Practice again/Back to library）+ **三选一 tab**（All 标 ✓✗– / Correct only / Wrong only）+ 题卡点选。后端新增 `POST /api/sessions/{id}/regrade`（按存储的 chosen 重判分；未提交 409） |
 | **IDE 折叠栏（批3）** | 结果页右侧 `ReviewSidebar`（手风琴三区 + Export）：**Explanation**——解析手写直存 DB（`PUT …/questions/{qid}/explain`，0 token，空串清除）；**Vocabulary**——Numbers/Excel 式自由表格（默认 `Word｜Meaning｜Notes`，行列增删改，`GET/PUT …/words`，openpyxl 导出 `.xlsx`）；**AI Answer**——context = **题目题干 + 正确选项**（不含材料/用户作答/手写解析），`POST /api/ai/answer`，未配 key 409、LLMError 502 |
 | **导出 + 统计（批4）** | `GET /api/documents/{id}/export/{md\|csv\|json}`（题干+选项+答案+解析，0 token，CSV 标准引号转义）；结果页**纯统计面板**：Score（含 blank 数）、分 section 正确率（rw/math）、用时、错题 chips（点击跳题）。新依赖 **openpyxl（已批准）** |
+| **结果页三栏改版（2026-10-06）** | 结果页由「所有题纵向连排」改为 **master–detail 三栏**：左＝题号列表 `#qindex`（绿✓/红✗/灰– 状态、吸顶、随三选一 tab 过滤）、中＝单题内容 `#qcontent`（上/下一题按钮 + `n / total` + 键盘 ←/→，输入框内不劫持）、右＝`ReviewSidebar` sticky 常驻——翻到哪一题知识点整理栏都在视口内。错题 chips 点击直接选中并滚到该题；默认筛选保持 All；<1024px 竖排降级。E2E run3 断言同步改为针对 `#qindex`/`#qcontent` |
 
 ## 3. Token 成本原则
 
@@ -180,6 +181,7 @@ POST   /api/llm/chat（草案，未实现）          AI 解答走 /api/ai/answe
 | 批2 | 全屏开始屏、交卷后补录（`?session=`）、regrade 端点、独立结果页 + 三选一 | pytest +3；E2E run1/run2/run3 |
 | 批3 | `ReviewSidebar`（解析直存 / 词汇表 xlsx / AI 解答 context=题干+正确选项）、`word_grids` 表、openpyxl | pytest +9；E2E-3 |
 | 批4 | md/csv/json 导出、结果页纯统计面板（分 section、错题 chips 跳题、用时） | pytest +4；E2E-3 |
+| 结果页改版 | 三栏 master–detail（题号列表 / 单题内容 / 常驻整理栏）+ 键盘 ←/→ 切题；修复侧栏 `w-full shrink-0` 未在 lg 收宽导致主栏被挤 0 宽的布局 bug | build 0 错误；E2E run/run2/run3 全过 |
 
 当前基线：**107 pytest 全过**；`npm run build` 0 错误；E2E `run.mjs` / `run2.mjs` / `run3.mjs` 全过。
 E2E 位于 `/tmp/e2e/`（puppeteer-core + 本机 Chrome，不进仓库）；run3 内置本地 mock LLM 服务（:8123）验证 AI 解答全链路。
