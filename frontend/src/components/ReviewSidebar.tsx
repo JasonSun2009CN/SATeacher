@@ -427,17 +427,17 @@ export default function ReviewSidebar({ docId, item, onClose, onExplainSaved }: 
             {open === "export" && (
               <div className="mt-2">
                 <p className="text-xs text-slate-500">
-                  Questions, answers and explanations as a file (no AI involved).
+                  Questions, answers and explanations as a document (no AI involved).
                 </p>
                 <div className="mt-2 flex gap-2">
-                  {(["md", "csv", "json"] as const).map((fmt) => (
+                  {(["pdf", "docx"] as const).map((fmt) => (
                     <a
                       key={fmt}
                       href={api.exportUrl(docId, fmt)}
                       download
                       className="rounded-lg border bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-100"
                     >
-                      .{fmt}
+                      Export .{fmt}
                     </a>
                   ))}
                 </div>

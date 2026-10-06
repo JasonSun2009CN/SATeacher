@@ -7,7 +7,7 @@ from pathlib import Path  # noqa: E402
 
 import pytest  # noqa: E402
 
-from tests.fixtures import build_sat_pdf  # noqa: E402
+from tests.fixtures import build_sat_docx, build_sat_pdf, build_scanned_pdf  # noqa: E402
 
 MINI_SATMD = """---
 satmd: 1
@@ -44,6 +44,16 @@ What is the value of $x$ if $x + 2 = 5$?
 @pytest.fixture(scope="session")
 def sat_pdf(tmp_path_factory: pytest.TempPathFactory) -> Path:
     return build_sat_pdf(tmp_path_factory.mktemp("pdf") / "sat-sample.pdf")
+
+
+@pytest.fixture(scope="session")
+def sat_docx(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    return build_sat_docx(tmp_path_factory.mktemp("docx") / "sat-sample.docx")
+
+
+@pytest.fixture(scope="session")
+def sat_scanned(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    return build_scanned_pdf(tmp_path_factory.mktemp("scan") / "sat-scanned.pdf")
 
 
 @pytest.fixture(scope="session")

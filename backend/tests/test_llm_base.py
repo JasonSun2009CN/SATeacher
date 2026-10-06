@@ -80,6 +80,36 @@ def test_openai_custom_base_url(stored, monkeypatch: pytest.MonkeyPatch) -> None
     assert seen[0]["url"] == "https://proxy.internal/v1/chat/completions"
 
 
+def test_officially_documented_default_base_url(
+    stored, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # An empty stored base URL falls back to the provider's official default.
+    stored(provider="deepseek", base_url="", api_key="k", model="deepseek-chat")
+    seen = _capture(monkeypatch, httpx.Response(200, json=OPENAI_OK))
+
+    llm.complete("s", [{"role": "user", "content": "x"}])
+
+    req = seen[0]
+    assert req["url"] == "https://api.deepseek.com/v1/chat/completions"
+    assert req["headers"]["Authorization"] == "Bearer k"
+
+
+def test_protocol_override_beats_provider(
+    stored, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # protocol is independent of provider: an OpenAI-preset service can still
+    # speak the Anthropic (Messages) wire format when told to.
+    stored(provider="openai", protocol="anthropic", api_key="ak", model="claude-test")
+    seen = _capture(monkeypatch, httpx.Response(200, json=ANTHROPIC_OK))
+
+    out = llm.complete("SYS", [{"role": "user", "content": "label"}])
+
+    assert out == "anthropic-says-hi"
+    req = seen[0]
+    assert req["url"] == "https://api.openai.com/v1/messages"
+    assert req["headers"]["x-api-key"] == "ak"
+
+
 def test_anthropic_request_shape(stored, monkeypatch: pytest.MonkeyPatch) -> None:
     stored(provider="anthropic", base_url="", api_key="ak", model="claude-test")
     seen = _capture(monkeypatch, httpx.Response(200, json=ANTHROPIC_OK))

@@ -5,3 +5,6 @@ python-multipart>=0.0.20
 httpx>=0.28
 pytest>=8.3
 openpyxl
+weasyprint>=62
+python-docx>=1.1
+cairosvg>=2.7

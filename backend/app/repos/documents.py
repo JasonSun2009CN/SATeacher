@@ -35,12 +35,16 @@ def create_document(
     answers_status: str,
     question_count: int,
     builtin_key: str | None = None,
+    import_source: str | None = None,
+    used_ai: bool = False,
+    report_json: str | None = None,
 ) -> int:
     from app.db import execute
 
     return execute(
         "INSERT INTO documents (title, source_filename, satmd_path, answers_status,"
-        " question_count, builtin_key) VALUES (?, ?, ?, ?, ?, ?)",
+        " question_count, builtin_key, import_source, used_ai, report_json)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
             title,
             source_filename,
@@ -48,6 +52,9 @@ def create_document(
             answers_status,
             question_count,
             builtin_key,
+            import_source,
+            1 if used_ai else 0,
+            report_json,
         ),
     )
 

@@ -7,6 +7,7 @@ bitmap, a vector figure, and an answer key on the last page.
 
 from __future__ import annotations
 
+from io import BytesIO
 from pathlib import Path
 
 import pymupdf
@@ -166,4 +167,75 @@ def build_bluebook_pdf(path: Path) -> Path:
 
     doc.save(path)
     doc.close()
+    return path
+
+
+def build_sat_docx(path: Path) -> Path:
+    """A Word counterpart of build_sat_pdf: headings, material, wrapped option,
+    an inline image, one-line/two-per-line options and an answer-key table."""
+    from docx import Document
+
+    doc = Document()
+    doc.add_paragraph("SAT Practice Test — Sample")
+    doc.add_paragraph("Instructions: Choose the best answer for each question.")
+    doc.add_paragraph("Reading and Writing")
+
+    doc.add_paragraph(
+        "1. Despite the committee's reservations about the cost, the new policy "
+        "was adopted without amendment."
+    )
+    doc.add_paragraph(
+        "Critics called the decision premature, but supporters insisted that the "
+        "available data justified action."
+    )
+    doc.add_paragraph("The author's attitude toward the committee is best described as")
+    for opt in ["A. dismissive", "B. cautiously optimistic", "C. indifferent", "D. hostile"]:
+        doc.add_paragraph(opt)
+
+    doc.add_paragraph("2. The scientist's findings were considered ___ by her peers.")
+    doc.add_paragraph("A. questionable")
+    doc.add_paragraph("B. well established and widely cited in the")
+    doc.add_paragraph("field for nearly a decade")
+    doc.add_paragraph("C. tentative")
+    doc.add_paragraph("D. hostile")
+
+    doc.add_paragraph("3. The graph below shows a linear function. What is y when x = 4?")
+    doc.add_picture(BytesIO(_bitmap()))
+    for opt in ["A. 10", "B. 12", "C. 14", "D. 16"]:
+        doc.add_paragraph(opt)
+
+    doc.add_paragraph("Math")
+    doc.add_paragraph("4. If 3x + 5 = 20, what is the value of x?")
+    doc.add_paragraph("A. 3     B. 5     C. 8     D. 15")
+    doc.add_paragraph("5. What is the area of a rectangle with length 8 and width 5?")
+    doc.add_paragraph("A. 13     B. 40")
+    doc.add_paragraph("C. 26     D. 60")
+
+    doc.add_paragraph("Answer Key")
+    table = doc.add_table(rows=1, cols=5)
+    for column, (no, letter) in enumerate(
+        [(1, "A"), (2, "C"), (3, "B"), (4, "D"), (5, "A")]
+    ):
+        table.rows[0].cells[column].text = f"{no}. {letter}"
+
+    doc.save(path)
+    return path
+
+
+def build_scanned_pdf(path: Path) -> Path:
+    """Rasterize the text fixture into an image-only (no text layer) PDF.
+
+    This is what a scanner/photocopier produces: each page is a bitmap, so the
+    deterministic text extractor finds nothing and OCR is required.
+    """
+    source = build_sat_pdf(path.with_name("scan-source.pdf"))
+    src = pymupdf.open(source)
+    out = pymupdf.open()
+    for page in src:
+        pix = page.get_pixmap(matrix=pymupdf.Matrix(3, 3), alpha=False)
+        new_page = out.new_page(width=page.rect.width, height=page.rect.height)
+        new_page.insert_image(new_page.rect, stream=pix.tobytes("png"))
+    out.save(path)
+    out.close()
+    src.close()
     return path

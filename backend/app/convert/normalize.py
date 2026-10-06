@@ -108,7 +108,7 @@ def option_markers(line: str) -> list[tuple[int, str, int]]:
     if not found:
         return []
     first_idx = found[0][2]
-    if first_idx < len(line) and not line[first_idx].isspace():
+    if first_idx < len(line) and not _marker_boundary(line[first_idx]):
         return []                      # "D-Day", "A.very" -> not an option marker
     # strip a wrapping paren so "(A) 3 ..." is not mistaken for prose
     prefix = line[: found[0][0]].strip().lstrip("([{【")
@@ -121,7 +121,16 @@ def option_markers(line: str) -> list[tuple[int, str, int]]:
 
 
 def _has_space_after(line: str, end: int) -> bool:
-    return end >= len(line) or line[end].isspace()
+    return end >= len(line) or _marker_boundary(line[end])
+
+
+# A value may start with a space, a digit, `$`, or `−`/`-` (negative number).
+# OCR frequently drops the space after a marker ("(A)3", "A.13"), so accept
+# those too while still rejecting prose such as "A.very" or "D-Day".
+_MARKER_BOUNDARY_RE = re.compile(r"[\s\d$\-−]")
+
+def _marker_boundary(ch: str) -> bool:
+    return bool(_MARKER_BOUNDARY_RE.match(ch))
 
 
 def split_option_segments(line: str) -> tuple[str, list[tuple[str, str]]]:

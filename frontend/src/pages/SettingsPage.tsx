@@ -1,16 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, ApiError, type AppSettings, type ProbeResult } from "../api/client";
-
-const DEFAULT_BASE: Record<string, string> = {
-  openai: "https://api.openai.com/v1",
-  anthropic: "https://api.anthropic.com/v1",
-};
-
-const MODEL_SUGGESTIONS: Record<string, string[]> = {
-  openai: ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini"],
-  anthropic: ["claude-sonnet-4-5", "claude-haiku-4-5"],
-};
+import {
+  api,
+  ApiError,
+  type AppSettings,
+  type ProbeResult,
+  type ProviderInfo,
+} from "../api/client";
 
 function errText(err: unknown): string {
   return err instanceof ApiError ? err.message : String(err);
@@ -22,26 +18,42 @@ export default function SettingsPage() {
   const [apiKey, setApiKey] = useState("");
   const [model, setModel] = useState("");
   const [stored, setStored] = useState<AppSettings | null>(null);
+  const [providers, setProviders] = useState<ProviderInfo[]>([]);
+  const [providersLoaded, setProvidersLoaded] = useState(false);
   const [busy, setBusy] = useState<"save" | "test" | null>(null);
   const [message, setMessage] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
   const [probe, setProbe] = useState<ProbeResult | null>(null);
 
   useEffect(() => {
-    api
-      .getSettings()
-      .then((s) => {
+    Promise.all([api.getSettings(), api.listProviders()])
+      .then(([s, list]) => {
         setStored(s);
         setProvider(s.provider);
         setBaseUrl(s.base_url);
         setModel(s.model);
+        setProviders(list);
       })
-      .catch((err) => setMessage({ kind: "err", text: errText(err) }));
+      .catch((err) => setMessage({ kind: "err", text: errText(err) }))
+      .finally(() => setProvidersLoaded(true));
   }, []);
 
+  function presetOf(id: string): ProviderInfo | undefined {
+    return providers.find((p) => p.id === id);
+  }
+
+  const currentPreset = presetOf(provider);
+
   function onProviderChange(next: string) {
-    const previousDefault = DEFAULT_BASE[provider];
+    const previousPreset = presetOf(provider);
+    const nextPreset = presetOf(next);
     setProvider(next);
-    if (!baseUrl || baseUrl === previousDefault) setBaseUrl(DEFAULT_BASE[next]);
+    // Re-point the base URL only when it was a previous preset's default (or blank),
+    // so a manually edited custom URL survives a provider switch.
+    if (!baseUrl || baseUrl === previousPreset?.base_url) {
+      setBaseUrl(nextPreset?.base_url ?? "");
+    }
+    // Auto-routing gateways (OrcaRouter/OpenRouter/OpenPaths) set the model too.
+    if (nextPreset?.default_model) setModel(nextPreset.default_model);
   }
 
   async function onSave() {
@@ -142,9 +154,20 @@ export default function SettingsPage() {
             value={provider}
             onChange={(e) => onProviderChange(e.target.value)}
           >
-            <option value="openai">OpenAI</option>
-            <option value="anthropic">Anthropic</option>
+            {!providersLoaded && <option value={provider}>Loading providers…</option>}
+            {providers.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
           </select>
+          {currentPreset && (
+            <p className="mt-1 text-xs text-slate-500">
+              {currentPreset.protocol === "anthropic"
+                ? "A provider is the service; this one speaks the Anthropic Messages protocol (x-api-key auth)."
+                : "A provider is the service; this one speaks the OpenAI-compatible protocol (chat/completions, Bearer auth)."}
+            </p>
+          )}
         </div>
 
         <div>
@@ -155,13 +178,17 @@ export default function SettingsPage() {
             id="base-url"
             className={input}
             value={baseUrl}
-            placeholder={DEFAULT_BASE[provider]}
+            placeholder={currentPreset?.base_url || "https://…/v1"}
             onChange={(e) => setBaseUrl(e.target.value)}
           />
-          <p className="mt-1 text-xs text-slate-500">
-            OpenAI-compatible proxies work too — point this at any{" "}
-            <code className="rounded bg-slate-100 px-1">…/v1</code> endpoint.
-          </p>
+          {currentPreset?.note ? (
+            <p className="mt-1 text-xs text-slate-500">{currentPreset.note}</p>
+          ) : (
+            <p className="mt-1 text-xs text-slate-500">
+              OpenAI-compatible proxies work too — point this at any{" "}
+              <code className="rounded bg-slate-100 px-1">…/v1</code> endpoint.
+            </p>
+          )}
         </div>
 
         <div>
@@ -207,13 +234,13 @@ export default function SettingsPage() {
             className={input}
             value={model}
             list="model-suggestions"
-            placeholder={MODEL_SUGGESTIONS[provider][0]}
+            placeholder={currentPreset?.default_model ?? "e.g. gpt-4o-mini"}
             onChange={(e) => setModel(e.target.value)}
           />
           <datalist id="model-suggestions">
-            {MODEL_SUGGESTIONS[provider].map((m) => (
-              <option key={m} value={m} />
-            ))}
+            {currentPreset?.default_model && (
+              <option value={currentPreset.default_model} />
+            )}
           </datalist>
         </div>
 

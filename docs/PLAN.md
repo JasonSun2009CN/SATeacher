@@ -22,7 +22,7 @@ SAT 自动刷题助手：**导入题目文档 → 生成题数并补录答案 �
 | 存储 | SQLite 单文件 |
 | 节奏 | 先打通端到端最小闭环，再堆功能 |
 | 界面语言 | 全英文 |
-| MVP 导入格式 | PDF + 手写 `.sat.md`（DOCX 放 Phase 4） |
+| MVP 导入格式 | PDF + 手写 `.sat.md`（**DOCX 已于 2026-10-07 批次 B 支持**） |
 | 图表抠图 | 位图直接提取；矢量图按包围盒截图兜底 |
 | 推进方式 | Phase 0→1 连续做完，验收后再进 Phase 2 |
 | PDF 转换（2026-10-06） | 新增 **Bluebook 双栏 profile**（`convert/bluebook.py`）：徽章数字 + 行带 y 对齐配对左栏 passage 与右栏题干，选项续行拼接，页眉/页脚/圆圈选项伪图过滤；纯坐标确定性，0 token。真实 17 页导出 PDF → 27/27 题转换成功 |
@@ -31,9 +31,11 @@ SAT 自动刷题助手：**导入题目文档 → 生成题数并补录答案 �
 | **LLM 层（批1）** | `app/llm/base.py`：`complete(system, messages)` / `configured()` / typed `LLMError`；temperature 0、timeout 60s；OpenAI + Anthropic 双传输；401/403/404/429/400/5xx/网络错误统一映射为可读消息 |
 | **练习流程（批2）** | 全屏开始屏（`Begin — enter fullscreen`，requestFullscreen 必须用户手势，失败 catch 后继续）→ 做题 → 交卷。源无答案（graded==0）→ 跳 `/doc/:id/answers?session=:sid` 补录 → 「Save & view results」判分；源有答案直接出结果。结果页独立路由 `/session/:sid/result`：汇总卡（分数/用时/Practice again/Back to library）+ **三选一 tab**（All 标 ✓✗– / Correct only / Wrong only）+ 题卡点选。后端新增 `POST /api/sessions/{id}/regrade`（按存储的 chosen 重判分；未提交 409） |
 | **IDE 折叠栏（批3）** | 结果页右侧 `ReviewSidebar`（手风琴三区 + Export）：**Explanation**——解析手写直存 DB（`PUT …/questions/{qid}/explain`，0 token，空串清除）；**Vocabulary**——Numbers/Excel 式自由表格（默认 `Word｜Meaning｜Notes`，行列增删改，`GET/PUT …/words`，openpyxl 导出 `.xlsx`）；**AI Answer**——context = **题目题干 + 正确选项**（不含材料/用户作答/手写解析），`POST /api/ai/answer`，未配 key 409、LLMError 502 |
-| **导出 + 统计（批4）** | `GET /api/documents/{id}/export/{md\|csv\|json}`（题干+选项+答案+解析，0 token，CSV 标准引号转义）；结果页**纯统计面板**：Score（含 blank 数）、分 section 正确率（rw/math）、用时、错题 chips（点击跳题）。新依赖 **openpyxl（已批准）** |
+| **导出 + 统计（批4）** — ⚠️ 导出格式已被**批 A 替换为 PDF/DOCX** | `GET /api/documents/{id}/export/{md\|csv\|json}`（题干+选项+答案+解析，0 token，CSV 标准引号转义）；结果页**纯统计面板**：Score（含 blank 数）、分 section 正确率（rw/math）、用时、错题 chips（点击跳题）。新依赖 **openpyxl（已批准）** |
 | **结果页三栏改版（2026-10-06）** | 结果页由「所有题纵向连排」改为 **master–detail 三栏**：左＝题号列表 `#qindex`（绿✓/红✗/灰– 状态、吸顶、随三选一 tab 过滤）、中＝单题内容 `#qcontent`（上/下一题按钮 + `n / total` + 键盘 ←/→，输入框内不劫持）、右＝`ReviewSidebar` sticky 常驻——翻到哪一题知识点整理栏都在视口内。错题 chips 点击直接选中并滚到该题；默认筛选保持 All；<1024px 竖排降级。E2E run3 断言同步改为针对 `#qindex`/`#qcontent` |
 | **内置题库（批5，2026-10-06）** | 离线脚本 `scripts/build_builtin.py` 把源 PDF（719 页 / 1188 题）确定性切分转换为 **44 模块** satmd（TOC 页码校验 + 内容页日期/divider 变体定身份 + 答案页坐标解析回填）→ `backend/app/builtin/sat2025-rw-b/`（manifest + 单元 + 图片，1.9MB 随仓库分发）。后端 `GET /api/builtin`（清单 + 逐单元已添加状态）、`POST /api/builtin/{bank}/units/{unit}` 单加、`POST …/add-all` 批量，**复用 satmd 导入路径 0 token**；`documents.builtin_key` 列 + 部分唯一索引保证幂等（重复添加返回已有文档）。导入页一张题库卡（折叠）→ 展开按日期分组（10 组）→ 单元 **Add** + **Add all**，已添加显示 **✓ In library** 可跳练习页。文档标题＝「日期 · 变体」；**「25年12月亚太 · Harder A」源缺 2 题，收录 25 题版**（构建 warn 标注，总数校验扣除已知缺漏） |
+
+  | **服务商目录（批6，2026-10-06）** | **provider 重定义为服务商**（16 家预置，OrcaRouter 列第一），**protocol**（openai chat/completions ↔ anthropic messages）独立存储、由 provider 默认派生、可显式覆盖（`PUT` 显式 protocol 优先）。BaseURL 全部**官网核对**：MiniMax 修正为 `api.minimaxi.com/v1`（用户原 `api.minimax.chat` 非现官网 OpenAI 兼容端点，国际版为 `api.minimax.io/v1`）、Moonshot `.cn`、DashScope 美国区 `dashscope-us.aliyuncs.com/compatible-mode/v1`（ASCII 连字符）、OrcaRouter/OpenPaths/OpenRouter 网关带默认自动路由模型（`orcarouter/auto` 等）。新增 `GET /api/settings/providers` 目录端点；probe 使用目录默认 BaseURL；LLM 层按 protocol 分发（provider 与协议解耦）。Settings 页目录驱动下拉 + 协议说明 + 空 BaseURL 自动回落到官方默认 |
 
 ## 3. Token 成本原则
 
@@ -130,7 +132,7 @@ PUT    /api/documents/{id}/questions/{qid}/explain   解析手写直存（空串
 GET    /api/documents/{id}/words             自由表格（默认 Word|Meaning|Notes）
 PUT    /api/documents/{id}/words             校验行列上限后入库
 GET    /api/documents/{id}/words/export      openpyxl 生成 .xlsx
-GET    /api/documents/{id}/export/{fmt}      md | csv | json（题干+选项+答案+解析）
+GET    /api/documents/{id}/export/{fmt}      pdf | docx（题干+选项+答案+解析；0 token）
 POST   /api/ai/answer                        AI 解答（context = 题干 + 正确选项）
 POST   /api/llm/chat（草案，未实现）          AI 解答走 /api/ai/answer；analyses/vocab/notes CRUD 暂未启用
 ```
@@ -168,30 +170,35 @@ POST   /api/llm/chat（草案，未实现）          AI 解答走 /api/ai/answe
 **验收**：做题时划词入库，隔天复习列表出现到期词。
 
 ### Phase 4 — 导出与导入兜底
-导出 MD / CSV / JSON、浏览器打印 PDF；导入失败页的 LLM 兜底（按页开关）；可选扩展 DOCX / 手写 MD 导入。
+导出 MD / CSV / JSON、浏览器打印 PDF（**注：MD/CSV/JSON 已于 2026-10-07 由 PDF/DOCX 取代**）；导入失败页的 LLM 兜底（按页开关）；可选扩展 DOCX / 手写 MD 导入。
 **验收**：任意格式导出可用；一份排版混乱的 PDF 靠兜底成功导入。
 
 ### Phase 5 — 打磨
 模块划分（Section/Module）、自适应式分段、统计图表、复习计划强化、打包说明（用户本地 `uv/pip` 启动）。
 
-### 批次交付记录（2026-10-06；批1–4 与结果页改版已 commit，批5 未 commit）
+### 批次交付记录（2026-10-06；批1–6 全部已 commit）
 
 | 批 | 内容 | 验证 |
 |---|---|---|
 | 批1 | `app/llm/` 传输层 + `convert/llm_fallback.py` 混合转换 + `ConvertError` fallback 标记 | pytest +23 |
 | 批2 | 全屏开始屏、交卷后补录（`?session=`）、regrade 端点、独立结果页 + 三选一 | pytest +3；E2E run1/run2/run3 |
 | 批3 | `ReviewSidebar`（解析直存 / 词汇表 xlsx / AI 解答 context=题干+正确选项）、`word_grids` 表、openpyxl | pytest +9；E2E-3 |
-| 批4 | md/csv/json 导出、结果页纯统计面板（分 section、错题 chips 跳题、用时） | pytest +4；E2E-3 |
+| 批4 | ~~md/csv/json 导出~~（**2026-10-07 已删除**，改由批 A 提供 PDF/DOCX）、结果页纯统计面板（分 section、错题 chips 跳题、用时） | pytest +4；E2E-3 |
 | 结果页改版 | 三栏 master–detail（题号列表 / 单题内容 / 常驻整理栏）+ 键盘 ←/→ 切题；修复侧栏 `w-full shrink-0` 未在 lg 收宽导致主栏被挤 0 宽的布局 bug | build 0 错误；E2E run/run2/run3 全过 |
 | 批5 | 内置题库：`scripts/build_builtin.py` 离线构建 44/44 单元（1186 题 + 1186 答案 + 17 图）、`documents.builtin_key` 迁移、`app/api/builtin.py`（列表/单加/批量、幂等）、导入页 `BuiltinBankCard`（日期分组、Add / Add all / ✓ In library 跳转） | pytest 113（+6）；E2E run4 新增全过；run/run2/run3 回归过；build 0 错误 |
 | StrictMode 修复（2026-10-06） | `PracticePage` startSession 双调修复（`startedFor` ref：同 docId 只建一次；`aliveRef` 处理真实卸载，StrictMode 合成 cleanup 不取消在途请求）；E2E run.mjs 加会话数断言（首进=1、重做=2） | E2E run/run2/run3/build 全过 |
+| 批6 | 服务商目录：`app/providers.py`（16 家预置，OrcaRouter 第一，BaseURL 官网核对 + 自动路由默认模型）、settings 新增 `protocol` 键（显式覆盖 provider 派生）、`GET /api/settings/providers`、probe/LLM 层按 protocol 分发并回落目录默认 BaseURL、Settings 页目录驱动下拉 + 协议提示 | pytest 121（+8）；E2E run/run2/run3/run4 全过；build 0 错误 |
+| **批 A（=改造批 13，2026-10-07）** | **PDF/DOCX 导出取代 md/csv/json**：新增 `backend/app/export/`（`model.py`/`pdf.py`/`docx.py`/`math_render.py` + `mathjax/` Node 桥接 `render.mjs`）、`GET /api/documents/{id}/export/{pdf\|docx}`、`api/documents.py` 删旧导出、前端 `client.ts`+`ReviewSidebar.tsx` 改 PDF/DOCX 按钮；数学＝MathJax SVG（PDF 内联 SVG / DOCX 经 `cairosvg` 转 PNG；Node 缺失降级纯文本）；新增依赖 `weasyprint`/`python-docx`/`cairosvg` | 新增 `test_export.py` 7 项（PDF/DOCX 前缀 + 回读 + 校验 + 数学桥接/容错）；后端 **124 passed**；真实文档 22/23 渲染成功（16/11 页，含内嵌图片/页码/答案键/解析）；build 0 错误 |
+| **批 B（DOCX 导入，2026-10-07）** | 新增 `backend/app/convert/docx.py`（python-docx 抽取段落/表格/内嵌图片 + 软换行/VML；复用 PDF 题号/选项/material-stem/答案键管线，0 token；图片经 PyMuPDF 归一化为 PNG 资产）；`POST /api/documents` 增 `.docx` 分支；ImportPage `accept`/文案更新；**zip 安全**（条目数/解压总量/压缩比/宏部件校验）；依赖 `python-docx`（批 A 已加入） | 新增 `test_docx_convert.py` 12 项 + API 导入 1 项；后端 **137 passed**；build 0 错误 |
+| **批 C（扫描 PDF / OCR，2026-10-07）** | 新增 `backend/app/convert/ocr/{base,vision,tesseract}.py`；`convert/pdf.py` 页级文本密度检测（`PAGE_MIN_CHARS`）+ 低密度页栅格化 OCR + 坐标归一化回 PDF 点 + `is_chrome` 过滤；`normalize.option_markers` 容忍 OCR 丢空格（`(A)3`/`A.13`）；`/api/health` 增 `ocr` 引擎列表；导入页 OCR 状态提示。**零新增 Python 依赖**：Tesseract 走系统二进制子进程（`SATEACHER_OCR_LANG`），macOS Vision 需自行可选安装 `pyobjc-framework-Vision` | 新增 `test_ocr.py` 9 项（TSV 解析 + 无引擎降级 + 文本 PDF 不触发 OCR + 扫描件往返 5 题/答案键）+ API 扫描导入/health 2 项；后端 **148 passed**；build 0 错误 |
+| **批 D（导入流水线骨架，2026-10-07）** | 新增 `app/imports.py`（统一 detect→convert→commit 服务，0 token）、`repos/imports.py` + `import_jobs` 表、`api/imports.py`（create/get/commit/cancel/delete/ai-fallback(501)）；`db.py` 增 `migrate()` 与 `documents.import_source/used_ai/report_json`；`convert/model.py` 增 `PageReport` 逐页报告；`POST /api/documents` 改走同一服务；前端 `ImportPipeline.tsx`/`SatMdTemplate.tsx`/`LibraryList.tsx` + `ImportPage.tsx` 拖放与流水线 + `client.ts` 端点 | 新增 `test_imports_api.py` 13 项 + `test_migrations.py` 3 项；后端 **164 passed**；build 0 错误 |
 
-当前基线：**113 pytest 全过**；`npm run build` 0 错误；E2E `run.mjs` / `run2.mjs` / `run3.mjs` / `run4.mjs` 全过。
+当前基线：**164 pytest 全过**；`npm run build` 0 错误；E2E `run.mjs` / `run2.mjs` / `run3.mjs` / `run4.mjs` 全过。
 E2E 位于 `/tmp/e2e/`（puppeteer-core + 本机 Chrome，不进仓库）；run3 内置本地 mock LLM 服务（:8123）验证 AI 解答全链路。
 
 ## 9. 已确认（原未决项）
 
 1. 界面语言：**全英文**（含菜单、设置、错题本）。
-2. MVP 导入格式：**PDF + `.sat.md`**。
+2. MVP 导入格式：**PDF + `.sat.md`**（+ **DOCX**，2026-10-07 批次 B）。
 3. 图表：**位图提取 + 矢量图截图**，不追求 SVG 还原。
 4. 推进：**Phase 0→1 连续做完再验收**，通过后进 Phase 2。

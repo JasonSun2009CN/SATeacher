@@ -1,5 +1,8 @@
 from pathlib import Path
 
+import pytest
+
+from app.convert.ocr import tesseract
 from app.db import satmd_path
 from tests.conftest import MINI_SATMD, upload
 
@@ -7,7 +10,9 @@ from tests.conftest import MINI_SATMD, upload
 def test_health(client) -> None:
     resp = client.get("/api/health")
     assert resp.status_code == 200
-    assert resp.json()["status"] == "ok"
+    body = resp.json()
+    assert body["status"] == "ok"
+    assert isinstance(body["ocr"], list)
 
 
 def test_import_satmd(client) -> None:
@@ -29,6 +34,36 @@ def test_import_pdf(client, sat_pdf: Path) -> None:
     assert body["answers_status"] == "external"
     assert body["needs_answers"] is False
     assert body["warnings"]
+
+
+def test_import_docx(client, sat_docx: Path) -> None:
+    resp = upload(client, "sat-sample.docx", sat_docx.read_bytes())
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["question_count"] == 5
+    assert body["answers_status"] == "external"
+    assert body["needs_answers"] is False
+    # the extracted figure is stored and recorded on its question
+    questions = client.get(f"/api/documents/{body['id']}/questions").json()
+    images = [img for q in questions for img in q["images"]]
+    assert images, "the embedded figure should be recorded on a question"
+
+
+@pytest.mark.skipif(
+    not tesseract.available(), reason="tesseract binary not installed"
+)
+def test_import_scanned_pdf(client, sat_scanned: Path) -> None:
+    resp = upload(client, "sat-scanned.pdf", sat_scanned.read_bytes())
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["question_count"] >= 3
+    assert body["answers_status"] == "external"
+    assert any("OCR" in w for w in body["warnings"])
+
+
+def test_health_lists_ocr_engines(client) -> None:
+    body = client.get("/api/health").json()
+    assert isinstance(body["ocr"], list)
 
 
 def test_reject_unsupported_type(client) -> None:

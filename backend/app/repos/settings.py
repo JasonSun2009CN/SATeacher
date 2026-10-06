@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from app.db import db
 
-ALLOWED_KEYS = ("provider", "base_url", "api_key", "model")
+ALLOWED_KEYS = ("provider", "protocol", "base_url", "api_key", "model")
 
 
 def get_all() -> dict[str, str]:

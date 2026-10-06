@@ -18,7 +18,8 @@ import pymupdf
 from app import llm
 from app.convert import bluebook as _bluebook
 from app.convert import images as _images
-from app.convert.model import BuiltQuestion, Item
+from app.convert import ocr as _ocr
+from app.convert.model import BuiltQuestion, Item, PageReport
 from app.convert.normalize import (
     clean_text,
     guess_sec,
@@ -39,6 +40,10 @@ GAP_MERGE = 0.55         # line gap <= this * size -> same paragraph
 GAP_BLANK = 1.6          # line gap >  this * size -> certainly a new paragraph
 INDENT_JUMP = 12.0       # pt; a larger indent starts a new paragraph
 NEW_QUESTION_GAP = 0.7   # gap that lets a numbered line start a new question
+
+PAGE_MIN_CHARS = 25      # fewer visible chars than this -> treat the page as scanned
+OCR_ZOOM = 2.5           # rasterization scale for OCR (~180 dpi)
+OCR_CONF_THRESHOLD = 0.75
 
 
 class ConvertError(Exception):
@@ -79,6 +84,7 @@ class ConvertedDoc:
     warnings: list[str]
     answers_status: str          # inline | external | none
     question_count: int
+    pages: list[PageReport] = field(default_factory=list)
 
 
 # --------------------------------------------------------------------------
@@ -181,6 +187,66 @@ def _scan_page(
                           max(fig.rect[3] - fig.rect[1], 8.0)))
 
     return _order(lines, width, height, mid), assets
+
+
+def _ocr_page_lines(
+    page: pymupdf.Page, page_no: int, warnings: list[str]
+) -> tuple[list[Line], PageReport]:
+    """OCR a page with no text layer; returns ([], report) when OCR can't run."""
+    engine = _ocr.get_engine()
+    if engine is None:
+        warnings.append(
+            f"page {page_no}: no text layer and no OCR engine available — install "
+            "the `tesseract` binary, or pyobjc Vision on macOS"
+        )
+        return [], PageReport(page_no, "ocr_unavailable", None, None, "no OCR engine installed")
+    try:
+        pix = page.get_pixmap(matrix=pymupdf.Matrix(OCR_ZOOM, OCR_ZOOM), alpha=False)
+        png = pix.tobytes("png")
+    except Exception as exc:
+        warnings.append(f"page {page_no}: could not render the page for OCR ({exc})")
+        return [], PageReport(page_no, "ocr_failed", engine.NAME, None, "page render failed")
+    try:
+        ocr_lines = engine.recognize(png)
+    except Exception as exc:
+        warnings.append(f"page {page_no}: {engine.NAME} OCR failed ({exc})")
+        return [], PageReport(page_no, "ocr_failed", engine.NAME, None, str(exc))
+    if not ocr_lines:
+        warnings.append(f"page {page_no}: OCR found no text")
+        return [], PageReport(page_no, "empty", engine.NAME, None, "no text found")
+
+    height = page.rect.height
+    scale = 1.0 / OCR_ZOOM          # OCR boxes are in rendered-image pixels
+    lines: list[Line] = []
+    for ocr_line in ocr_lines:
+        text = clean_text(ocr_line.text)
+        y0 = ocr_line.y0 * scale
+        y1 = ocr_line.y1 * scale
+        if not text or is_chrome(text, y0, y1, height):
+            continue
+        lines.append(Line(
+            text, page_no,
+            ocr_line.x0 * scale, y0, ocr_line.x1 * scale, y1,
+            max(y1 - y0, 8.0),
+        ))
+
+    confidences = [c for c in (line.confidence for line in ocr_lines) if c is not None]
+    mean: float | None = None
+    status = "ocr_ok"
+    reason: str | None = None
+    if confidences:
+        mean = sum(confidences) / len(confidences)
+        note = f"page {page_no}: OCR via {engine.NAME} (mean confidence {mean:.2f})"
+        if mean < OCR_CONF_THRESHOLD:
+            status = "low_confidence"
+            reason = "low OCR confidence — review the text"
+            note += " — low confidence, review the text"
+        warnings.append(note)
+    else:
+        warnings.append(f"page {page_no}: OCR via {engine.NAME} (confidence not reported)")
+
+    ordered = _order(lines, page.rect.width, height, page.rect.width / 2)
+    return ordered, PageReport(page_no, status, engine.NAME, mean, reason)
 
 
 # --------------------------------------------------------------------------
@@ -586,6 +652,7 @@ def _assemble(
     lang: str,
     all_assets: dict[str, bytes],
     warnings: list[str],
+    pages: list[PageReport] | None = None,
 ) -> ConvertedDoc:
     """Validate, render and package questions — shared by both profiles."""
     inline_answers = 0
@@ -641,6 +708,7 @@ def _assemble(
         warnings=warnings,
         answers_status=status,
         question_count=len(parsed.questions),
+        pages=pages or [],
     )
 
 
@@ -702,22 +770,53 @@ def _convert_deterministic(path: Path, title: str, warnings: list[str]) -> Conve
             return _assemble(
                 title, path.name, result.questions, answer_map, lang,
                 result.assets, warnings,
+                pages=[PageReport(i + 1, "text") for i in range(doc.page_count)],
             )
 
         seen_hashes: set[str] = set()
         pages: list[list[Line]] = []
+        reports: list[PageReport] = []
         all_assets: dict[str, bytes] = {}
+        scanned_pages = 0
+        ocr_pages = 0
         for index in range(doc.page_count):
-            lines, page_assets = _scan_page(doc.load_page(index), index + 1, seen_hashes, warnings)
-            pages.append(lines)
+            page = doc.load_page(index)
+            lines, page_assets = _scan_page(page, index + 1, seen_hashes, warnings)
             all_assets.update(page_assets)
+            visible = sum(len(line.text) for line in lines if not _is_figure(line))
+            if visible < PAGE_MIN_CHARS:
+                scanned_pages += 1
+                ocr_lines, report = _ocr_page_lines(page, index + 1, warnings)
+                reports.append(report)
+                if ocr_lines:
+                    ocr_pages += 1
+                    lines = ocr_lines
+            else:
+                reports.append(PageReport(index + 1, "text"))
+            pages.append(lines)
+
+        if scanned_pages and scanned_pages == doc.page_count and not ocr_pages and _ocr.get_engine() is None:
+            raise ConvertError(
+                "this PDF looks fully scanned and no OCR engine is available — "
+                "install the `tesseract` binary (any OS) or pyobjc Vision on macOS "
+                "to import scanned PDFs",
+                fallback=False,
+            )
     finally:
         doc.close()
 
     items = _collect_items(pages)
     if not items:
+        engines = _ocr.available_engines()
+        if engines:
+            hint = f"OCR engines available ({', '.join(engines)}) found no readable text"
+        else:
+            hint = (
+                "install the `tesseract` binary (any OS), or "
+                "`pyobjc-framework-Vision` on macOS, to import scanned PDFs"
+            )
         raise ConvertError(
-            "no text could be extracted (the PDF may be a scanned image)",
+            f"no text could be extracted — this looks like a scanned PDF; {hint}",
             fallback=False,
         )
 
@@ -756,4 +855,5 @@ def _convert_deterministic(path: Path, title: str, warnings: list[str]) -> Conve
             continue
         questions.append(built)
 
-    return _assemble(title, path.name, questions, answer_map, lang, all_assets, warnings)
+    return _assemble(title, path.name, questions, answer_map, lang, all_assets, warnings,
+                     pages=reports)

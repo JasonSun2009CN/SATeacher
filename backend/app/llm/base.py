@@ -11,15 +11,12 @@ from __future__ import annotations
 
 import httpx
 
+from app.providers import default_base_url, default_protocol, get_provider
 from app.repos import settings as settings_repo
 
 TIMEOUT = 60.0
 TEMPERATURE = 0.0
 ANTHROPIC_VERSION = "2023-06-01"
-DEFAULT_BASE = {
-    "openai": "https://api.openai.com/v1",
-    "anthropic": "https://api.anthropic.com/v1",
-}
 
 
 class LLMError(Exception):
@@ -29,14 +26,23 @@ class LLMError(Exception):
 def _config() -> dict[str, str]:
     stored = settings_repo.get_all()
     provider = stored.get("provider", "openai")
-    if provider not in DEFAULT_BASE:
+    if get_provider(provider) is None:
         raise LLMError(f"unknown provider {provider!r} — fix it in Settings")
     key = stored.get("api_key", "")
     model = stored.get("model", "")
     if not key or not model:
         raise LLMError("no API key or model configured — set them in Settings")
-    base = (stored.get("base_url") or DEFAULT_BASE[provider]).rstrip("/")
-    return {"provider": provider, "key": key, "model": model, "base": base}
+    base = (stored.get("base_url") or default_base_url(provider)).rstrip("/")
+    if not base:
+        raise LLMError(f"provider {provider!r} needs a base URL — set it in Settings")
+    protocol = stored.get("protocol") or default_protocol(provider)
+    return {
+        "provider": provider,
+        "protocol": protocol,
+        "key": key,
+        "model": model,
+        "base": base,
+    }
 
 
 def configured() -> bool:
@@ -51,7 +57,7 @@ def complete(system: str, messages: list[dict[str, str]]) -> str:
     Raises LLMError on configuration, network, or provider failures.
     """
     cfg = _config()
-    if cfg["provider"] == "anthropic":
+    if cfg["protocol"] == "anthropic":
         return _anthropic(cfg, system, messages)
     return _openai(cfg, system, messages)
 

@@ -15,6 +15,41 @@ export interface DocumentSummary {
   warnings?: string[];
 }
 
+export type ImportJobStatus =
+  | "detecting"
+  | "converting"
+  | "review"
+  | "done"
+  | "failed"
+  | "cancelled";
+
+export interface ImportPageReport {
+  no: number;
+  status: string; // text | ocr_ok | low_confidence | ocr_unavailable | ocr_failed | empty
+  source: string | null;
+  confidence: number | null;
+  reason: string | null;
+}
+
+export interface ImportJob {
+  id: string;
+  filename: string;
+  status: ImportJobStatus;
+  stage: string;
+  kind: string | null;
+  import_source: string | null;
+  pages_total: number;
+  pages_done: number;
+  question_count: number;
+  used_ai: boolean;
+  document_id: number | null;
+  error: string | null;
+  created_at: string;
+  pages: ImportPageReport[];
+  warnings: string[];
+  needs_review: boolean;
+}
+
 export interface Question {
   id: number;
   ext_id: string;
@@ -106,11 +141,22 @@ export interface BuiltinBank {
 
 /** Stored LLM API config — the key is write-only and always masked on read. */
 export interface AppSettings {
-  provider: "openai" | "anthropic";
+  provider: string;
+  protocol: string;
   base_url: string;
   model: string;
   api_key_masked: string;
   api_key_set: boolean;
+}
+
+/** A model-service provider from the curated catalog (a service, not a protocol). */
+export interface ProviderInfo {
+  id: string;
+  name: string;
+  base_url: string;
+  protocol: string;
+  default_model: string | null;
+  note: string;
 }
 
 export interface SettingsInput {
@@ -153,7 +199,7 @@ function json(body: unknown): RequestInit {
 }
 
 export const api = {
-  health: () => request<{ status: string; version: string }>("/api/health"),
+  health: () => request<{ status: string; version: string; ocr: string[] }>("/api/health"),
 
   listDocuments: () => request<DocumentSummary[]>("/api/documents"),
 
@@ -162,6 +208,24 @@ export const api = {
     form.append("file", file);
     return request<DocumentSummary>("/api/documents", { method: "POST", body: form });
   },
+
+  /** Staged import pipeline (detect -> convert -> review -> commit). */
+  createImport: async (file: File): Promise<ImportJob> => {
+    const form = new FormData();
+    form.append("file", file);
+    return request<ImportJob>("/api/imports", { method: "POST", body: form });
+  },
+
+  getImport: (jobId: string) => request<ImportJob>(`/api/imports/${jobId}`),
+
+  commitImport: (jobId: string) =>
+    request<ImportJob>(`/api/imports/${jobId}/commit`, { method: "POST" }),
+
+  cancelImport: (jobId: string) =>
+    request<ImportJob>(`/api/imports/${jobId}/cancel`, { method: "POST" }),
+
+  deleteImport: (jobId: string) =>
+    request<{ deleted: string }>(`/api/imports/${jobId}`, { method: "DELETE" }),
 
   getDocument: (id: number) => request<DocumentSummary>(`/api/documents/${id}`),
 
@@ -228,8 +292,8 @@ export const api = {
 
   wordsExportUrl: (docId: number) => `/api/documents/${docId}/words/export`,
 
-  /** Export questions + answers + explanations (0 token). */
-  exportUrl: (docId: number, fmt: "md" | "csv" | "json") =>
+  /** Export questions + answers + explanations as PDF/DOCX (0 token). */
+  exportUrl: (docId: number, fmt: "pdf" | "docx") =>
     `/api/documents/${docId}/export/${fmt}`,
 
   /** Explicit AI call: context = question stem + correct option only. */
@@ -245,6 +309,9 @@ export const api = {
     >(`/api/documents/${docId}/history`),
 
   getSettings: () => request<AppSettings>("/api/settings"),
+
+  /** Curated model-service-provider catalog (OrcaRouter first). */
+  listProviders: () => request<ProviderInfo[]>("/api/settings/providers"),
 
   saveSettings: (input: SettingsInput) =>
     request<AppSettings>("/api/settings", { method: "PUT", ...json(input) }),

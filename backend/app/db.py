@@ -13,11 +13,16 @@ DATA_DIR = Path(os.environ.get("SATEACHER_DATA", REPO_ROOT / "data"))
 DB_PATH = DATA_DIR / "app.db"
 DOCS_DIR = DATA_DIR / "docs"          # docs/<doc_id>/doc.sat.md + assets/
 UPLOAD_TMP = DATA_DIR / "tmp"         # transient upload staging
+JOBS_DIR = DATA_DIR / "jobs"          # import_jobs/<job_id>/ (staged conversion result)
 EXPORTS_DIR = DATA_DIR / "exports"
 
 
 def doc_dir(doc_id: int) -> Path:
     return DOCS_DIR / str(doc_id)
+
+
+def jobs_dir(job_id: str) -> Path:
+    return JOBS_DIR / job_id
 
 
 def satmd_path(doc_id: int) -> Path:
@@ -36,6 +41,27 @@ CREATE TABLE IF NOT EXISTS documents (
   answers_status  TEXT NOT NULL DEFAULT 'none',  -- inline|external|none|pending
   question_count  INTEGER NOT NULL DEFAULT 0,
   builtin_key     TEXT,                          -- "bank_id/unit_id" for built-in banks
+  import_source   TEXT,                          -- pdf|docx|sat.md|builtin
+  used_ai         INTEGER NOT NULL DEFAULT 0,    -- 1 if any AI was used to import
+  report_json     TEXT,                          -- per-page conversion report (JSON)
+  created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS import_jobs (
+  id              TEXT PRIMARY KEY,              -- "j_<hex>"
+  filename        TEXT NOT NULL,
+  status          TEXT NOT NULL DEFAULT 'detecting',  -- detecting|converting|review|done|failed|cancelled
+  stage           TEXT NOT NULL DEFAULT 'detect',     -- detect|convert|validate|commit
+  kind            TEXT,                          -- pdf|docx|satmd
+  import_source   TEXT,
+  pages_total     INTEGER NOT NULL DEFAULT 0,
+  pages_done      INTEGER NOT NULL DEFAULT 0,
+  question_count  INTEGER NOT NULL DEFAULT 0,
+  used_ai         INTEGER NOT NULL DEFAULT 0,
+  pages_json      TEXT NOT NULL DEFAULT '[]',
+  warnings_json   TEXT NOT NULL DEFAULT '[]',
+  document_id     INTEGER REFERENCES documents(id) ON DELETE SET NULL,
+  error           TEXT,
   created_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -131,7 +157,7 @@ CREATE TABLE IF NOT EXISTS llm_logs (
 
 
 def ensure_dirs() -> None:
-    for d in (DATA_DIR, DOCS_DIR, UPLOAD_TMP, EXPORTS_DIR):
+    for d in (DATA_DIR, DOCS_DIR, UPLOAD_TMP, JOBS_DIR, EXPORTS_DIR):
         d.mkdir(parents=True, exist_ok=True)
 
 
@@ -152,17 +178,34 @@ def db() -> Iterator[sqlite3.Connection]:
         conn.close()
 
 
+def _migrate(conn: sqlite3.Connection) -> None:
+    """Idempotent in-place upgrades for pre-existing databases.
+
+    ``SCHEMA`` already contains the current shape for fresh databases; this
+    adds anything missing on older ones. Called by :func:`init_db` and safe to
+    run repeatedly. Kept as a standalone function so it can be unit-tested
+    against an in-memory connection.
+    """
+    cols = {row["name"] for row in conn.execute("PRAGMA table_info(documents)")}
+    additions = (
+        ("builtin_key", "TEXT"),
+        ("import_source", "TEXT"),
+        ("used_ai", "INTEGER NOT NULL DEFAULT 0"),
+        ("report_json", "TEXT"),
+    )
+    for name, ddl in additions:
+        if name not in cols:
+            conn.execute(f"ALTER TABLE documents ADD COLUMN {name} {ddl}")
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS ux_documents_builtin_key"
+        " ON documents(builtin_key) WHERE builtin_key IS NOT NULL"
+    )
+
+
 def init_db() -> None:
     with db() as conn:
         conn.executescript(SCHEMA)
-        # upgrade pre-existing databases: add documents.builtin_key when missing
-        cols = {row["name"] for row in conn.execute("PRAGMA table_info(documents)")}
-        if "builtin_key" not in cols:
-            conn.execute("ALTER TABLE documents ADD COLUMN builtin_key TEXT")
-        conn.execute(
-            "CREATE UNIQUE INDEX IF NOT EXISTS ux_documents_builtin_key"
-            " ON documents(builtin_key) WHERE builtin_key IS NOT NULL"
-        )
+        _migrate(conn)
 
 
 def query(sql: str, params: tuple = ()) -> list[sqlite3.Row]:
