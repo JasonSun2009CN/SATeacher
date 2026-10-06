@@ -184,6 +184,7 @@ POST   /api/llm/chat（草案，未实现）          AI 解答走 /api/ai/answe
 | 批4 | md/csv/json 导出、结果页纯统计面板（分 section、错题 chips 跳题、用时） | pytest +4；E2E-3 |
 | 结果页改版 | 三栏 master–detail（题号列表 / 单题内容 / 常驻整理栏）+ 键盘 ←/→ 切题；修复侧栏 `w-full shrink-0` 未在 lg 收宽导致主栏被挤 0 宽的布局 bug | build 0 错误；E2E run/run2/run3 全过 |
 | 批5 | 内置题库：`scripts/build_builtin.py` 离线构建 44/44 单元（1186 题 + 1186 答案 + 17 图）、`documents.builtin_key` 迁移、`app/api/builtin.py`（列表/单加/批量、幂等）、导入页 `BuiltinBankCard`（日期分组、Add / Add all / ✓ In library 跳转） | pytest 113（+6）；E2E run4 新增全过；run/run2/run3 回归过；build 0 错误 |
+| StrictMode 修复（2026-10-06） | `PracticePage` startSession 双调修复（`startedFor` ref：同 docId 只建一次；`aliveRef` 处理真实卸载，StrictMode 合成 cleanup 不取消在途请求）；E2E run.mjs 加会话数断言（首进=1、重做=2） | E2E run/run2/run3/build 全过 |
 
 当前基线：**113 pytest 全过**；`npm run build` 0 错误；E2E `run.mjs` / `run2.mjs` / `run3.mjs` / `run4.mjs` 全过。
 E2E 位于 `/tmp/e2e/`（puppeteer-core + 本机 Chrome，不进仓库）；run3 内置本地 mock LLM 服务（:8123）验证 AI 解答全链路。

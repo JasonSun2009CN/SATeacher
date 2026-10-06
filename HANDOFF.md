@@ -110,7 +110,7 @@ cd /tmp/e2e && node run4.mjs     # 内置题库：卡片/分组/单加/幂等/Ad
 - **本会话 edit 偶发不落盘**：重要改动后必须 grep/read 复核
 - **图片读取工具本会话缓存故障**：勿依赖图像目检，改用坐标/文本程序化分析
 - E2E 坑：Tailwind uppercase → 等待文案用 `/ready to begin/i`；run3 结尾 `Promise.race(browser.close, 5s)` + `process.exit(0)`；`servers.mjs` 子进程必须 `unref()` 否则挂起退出
-- `PracticePage` StrictMode 双调 `startSession`（ref 守卫）——用户验收时发现，**排队待修**
+- `PracticePage` StrictMode 双调 `startSession` **已修（2026-10-06）**：`startedFor` ref 保证同 docId 只建一次会话；⚠️ 教训——不能再用 cleanup 置 `cancelled=true`（StrictMode 的合成 cleanup 会把唯一一次请求的响应丢掉导致卡 Loading），改用 `aliveRef`（真实卸载/换文档才失效）+ `startedFor` 双守卫；E2E run.mjs 增加会话数断言（首进=1、重做=2）钉死回归
 - 结果页布局教训：flex 行里的侧栏包装层必须在 lg 收窄宽度（`w-full shrink-0` 不加 `lg:w-auto` 会把主栏挤成 0 宽、点击被覆盖）——已修，勿回退
 
 ## 7. 关键文件索引

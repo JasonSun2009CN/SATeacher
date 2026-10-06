@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, ApiError, type QuizQuestion, type StartResponse } from "../api/client";
 import RichText from "../components/RichText";
@@ -34,8 +34,17 @@ export default function PracticePage() {
   const [confirming, setConfirming] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  // React 18 StrictMode double-invokes effects in dev (setup -> cleanup ->
+  // setup). The backend session is a real side effect that cleanup cannot
+  // undo, so start it only once per document. The response is accepted only
+  // while the component is mounted (aliveRef) and no newer document is in
+  // flight (startedFor ref) — a StrictMode synthetic cleanup must NOT cancel
+  // the single in-flight request.
+  const startedFor = useRef<number | null>(null);
+  const aliveRef = useRef(true);
+
   useEffect(() => {
-    let cancelled = false;
+    aliveRef.current = true;
     setSession(null);
     setEntered(false);
     setIdx(0);
@@ -43,12 +52,19 @@ export default function PracticePage() {
     setMarked(new Set());
     setSeconds(0);
     setError(null);
+    if (startedFor.current === docId) return undefined; // strict-mode re-run
+
+    startedFor.current = docId;
     api
       .startSession(docId)
-      .then((s) => !cancelled && setSession(s))
-      .catch((err) => !cancelled && setError(errText(err)));
+      .then((s) => {
+        if (aliveRef.current && startedFor.current === docId) setSession(s);
+      })
+      .catch((err) => {
+        if (aliveRef.current && startedFor.current === docId) setError(errText(err));
+      });
     return () => {
-      cancelled = true;
+      aliveRef.current = false;
     };
   }, [docId]);
 
