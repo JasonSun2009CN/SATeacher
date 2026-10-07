@@ -1,0 +1,10 @@
+{
+  "name": "sateacher-mathjax",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Server-side TeX -> SVG bridge used by the PDF/DOCX exporter (optional).",
+  "dependencies": {
+    "mathjax-full": "^3.2.2"
+  }
+}
