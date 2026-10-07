@@ -93,44 +93,66 @@ def test_words_default_then_roundtrip(client) -> None:
 
     fresh = client.get(f"/api/documents/{doc_id}/words")
     assert fresh.status_code == 200
-    assert fresh.json() == {"headers": ["Word", "Meaning", "Notes"], "rows": []}
+    body = fresh.json()
+    assert body["version"] == 2
+    assert [c["name"] for c in body["columns"]] == ["Word", "Meaning", "Notes"]
+    assert all(c["id"] and c["width"] >= 60 for c in body["columns"])
+    assert body["rows"] == []
+    assert body["view"] == {"sort": None, "filter": {}}
 
     saved = client.put(
         f"/api/documents/{doc_id}/words",
         json={
-            "headers": ["Word", "Meaning", "Notes", "Tag"],
-            "rows": [["elate", "make happy", "verb", "rw"], ["cadence", "rhythm"]],
+            "version": 2,
+            "columns": [
+                {"id": "c1", "name": "Word", "width": 180},
+                {"id": "c2", "name": "Meaning", "width": 260},
+                {"id": "c3", "name": "Notes", "width": 220},
+                {"id": "c4", "name": "Tag", "width": 120},
+            ],
+            "rows": [
+                {"id": "r1", "cells": {"c1": "elate", "c2": "make happy", "c3": "verb", "c4": "rw"}},
+                {"id": "r2", "cells": {"c1": "cadence", "c2": "rhythm"}},
+            ],
         },
     )
     assert saved.status_code == 200, saved.text
-    # short rows are padded to the header width
-    assert saved.json()["rows"][1] == ["cadence", "rhythm", "", ""]
+    # missing cells are filled with empty strings, keyed by stable column id
+    assert saved.json()["rows"][1]["cells"]["c3"] == ""
 
     again = client.get(f"/api/documents/{doc_id}/words").json()
-    assert again["headers"] == ["Word", "Meaning", "Notes", "Tag"]
-    assert again["rows"][0] == ["elate", "make happy", "verb", "rw"]
+    assert [c["name"] for c in again["columns"]] == ["Word", "Meaning", "Notes", "Tag"]
+    assert again["rows"][0]["cells"]["c1"] == "elate"
+    assert again["rows"][0]["cells"]["c4"] == "rw"
 
 
 def test_words_validation(client) -> None:
     doc_id, _questions = _mini(client)
     base = f"/api/documents/{doc_id}/words"
 
-    assert client.put(base, json={"headers": [], "rows": []}).status_code == 400
+    assert client.put(base, json={"columns": [], "rows": []}).status_code == 400
     assert (
         client.put(
-            base, json={"headers": [f"c{i}" for i in range(13)], "rows": []}
+            base,
+            json={"columns": [{"name": f"c{i}"} for i in range(13)], "rows": []},
         ).status_code
         == 400
     )
     assert (
         client.put(
             base,
-            json={"headers": ["Word"], "rows": [["x"]] * 501},
+            json={"columns": [{"name": "Word"}], "rows": [{"cells": {"c1": "x"}}] * 501},
         ).status_code
         == 400
     )
-    assert client.put("/api/documents/999999/words",
-                      json={"headers": ["Word"], "rows": []}).status_code == 404
+    # a blank column name is rejected
+    assert client.put(base, json={"columns": [{"name": "   "}], "rows": []}).status_code == 400
+    assert (
+        client.put(
+            "/api/documents/999999/words", json={"columns": [{"name": "Word"}], "rows": []}
+        ).status_code
+        == 404
+    )
 
 
 def test_words_xlsx_export(client) -> None:
@@ -138,8 +160,14 @@ def test_words_xlsx_export(client) -> None:
     client.put(
         f"/api/documents/{doc_id}/words",
         json={
-            "headers": ["Word", "Meaning"],
-            "rows": [["ephemeral", "short-lived"], ["sturdy", "strong"]],
+            "columns": [
+                {"id": "c1", "name": "Word", "width": 180},
+                {"id": "c2", "name": "Meaning", "width": 240},
+            ],
+            "rows": [
+                {"id": "r1", "cells": {"c1": "ephemeral", "c2": "short-lived"}},
+                {"id": "r2", "cells": {"c1": "sturdy", "c2": "strong"}},
+            ],
         },
     )
 
@@ -160,6 +188,9 @@ def test_words_xlsx_export(client) -> None:
     assert rows[0] == ["Word", "Meaning"]
     assert rows[1] == ["ephemeral", "short-lived"]
     assert rows[2] == ["sturdy", "strong"]
+    # column order/widths and a frozen header survive the round-trip
+    assert ws.column_dimensions["A"].width == round(180 / 7)
+    assert ws.freeze_panes == "A2"
 
 
 # --------------------------------------------------------------------------

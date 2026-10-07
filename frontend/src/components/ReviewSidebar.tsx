@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, ApiError, type ResultItem, type WordGrid } from "../api/client";
+import VocabGrid from "./workspace/VocabGrid";
 
 type Section = "explain" | "words" | "ai" | "export";
 
@@ -38,6 +39,10 @@ function SectionToggle({
 /**
  * IDE-style collapsible workspace for the results page:
  * hand-written explanations, the vocabulary table, and the AI answer panel.
+ *
+ * Superseded by `workspace/Workspace.tsx` (batch 9) but kept in-tree so a
+ * single revert can restore the pre-workspace layout. Batch 10 shares the v2
+ * `VocabGrid` so this fallback keeps type-checking against the new API.
  */
 export default function ReviewSidebar({ docId, item, onClose, onExplainSaved }: Props) {
   const [open, setOpen] = useState<Section | null>("explain");
@@ -105,40 +110,6 @@ export default function ReviewSidebar({ docId, item, onClose, onExplainSaved }: 
     setGridDirty(true);
     setGridMsg(null);
     setGridErr(null);
-  }
-
-  function setCell(ri: number, ci: number, value: string) {
-    if (!grid) return;
-    const rows = grid.rows.map((row, r) =>
-      r === ri ? row.map((cell, c) => (c === ci ? value : cell)) : row,
-    );
-    mutate({ ...grid, rows });
-  }
-
-  function addRow() {
-    if (!grid) return;
-    mutate({ ...grid, rows: [...grid.rows, new Array(grid.headers.length).fill("")] });
-  }
-
-  function delRow(ri: number) {
-    if (!grid) return;
-    mutate({ ...grid, rows: grid.rows.filter((_r, i) => i !== ri) });
-  }
-
-  function addColumn() {
-    if (!grid) return;
-    mutate({
-      headers: [...grid.headers, `Column ${grid.headers.length + 1}`],
-      rows: grid.rows.map((row) => [...row, ""]),
-    });
-  }
-
-  function delColumn(ci: number) {
-    if (!grid || grid.headers.length <= 1) return;
-    mutate({
-      headers: grid.headers.filter((_h, i) => i !== ci),
-      rows: grid.rows.map((row) => row.filter((_c, i) => i !== ci)),
-    });
   }
 
   async function saveGrid(): Promise<boolean> {
@@ -261,94 +232,10 @@ export default function ReviewSidebar({ docId, item, onClose, onExplainSaved }: 
             />
             {open === "words" && (
               <div className="mt-2">
-                {gridErr && !grid && (
-                  <p className="rounded bg-red-50 px-2 py-1.5 text-xs text-red-700">{gridErr}</p>
-                )}
-                {grid && (
+                {grid ? (
                   <>
-                    <div className="overflow-x-auto rounded-lg border bg-white">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b bg-slate-100">
-                            {grid.headers.map((h, ci) => (
-                              <th key={ci} className="min-w-[7rem] p-1 font-semibold">
-                                <div className="flex items-center gap-1">
-                                  <input
-                                    value={h}
-                                    onChange={(e) =>
-                                      mutate({
-                                        ...grid,
-                                        headers: grid.headers.map((x, i) =>
-                                          i === ci ? e.target.value : x,
-                                        ),
-                                      })
-                                    }
-                                    className="w-full rounded border bg-transparent px-1 py-0.5 text-xs font-semibold focus:border-blue-400 focus:outline-none"
-                                  />
-                                  <button
-                                    onClick={() => delColumn(ci)}
-                                    title="Delete column"
-                                    className="shrink-0 rounded px-1 text-xs text-slate-400 hover:bg-red-100 hover:text-red-600"
-                                  >
-                                    ✕
-                                  </button>
-                                </div>
-                              </th>
-                            ))}
-                            <th className="w-8 p-1">
-                              <button
-                                onClick={addColumn}
-                                title="Add column"
-                                className="rounded px-1.5 text-slate-500 hover:bg-slate-200"
-                              >
-                                +
-                              </button>
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {grid.rows.map((row, ri) => (
-                            <tr key={ri} className="border-b last:border-0">
-                              {grid.headers.map((_h, ci) => (
-                                <td key={ci} className="p-1">
-                                  <input
-                                    value={row[ci] ?? ""}
-                                    onChange={(e) => setCell(ri, ci, e.target.value)}
-                                    className="w-full rounded border border-transparent bg-transparent px-1 py-1 text-xs hover:border-slate-200 focus:border-blue-400 focus:outline-none"
-                                  />
-                                </td>
-                              ))}
-                              <td className="p-1 text-center">
-                                <button
-                                  onClick={() => delRow(ri)}
-                                  title="Delete row"
-                                  className="rounded px-1 text-xs text-slate-400 hover:bg-red-100 hover:text-red-600"
-                                >
-                                  ✕
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                          {grid.rows.length === 0 && (
-                            <tr>
-                              <td
-                                colSpan={grid.headers.length + 1}
-                                className="px-2 py-3 text-center text-xs text-slate-400"
-                              >
-                                No words yet — add your first row.
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
+                    <VocabGrid grid={grid} onChange={mutate} />
                     <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <button
-                        onClick={addRow}
-                        className="rounded-lg border px-3 py-1.5 text-sm font-medium hover:bg-slate-100"
-                      >
-                        + Row
-                      </button>
                       <button
                         onClick={() => void saveGrid()}
                         disabled={!gridDirty || gridBusy}
@@ -362,17 +249,17 @@ export default function ReviewSidebar({ docId, item, onClose, onExplainSaved }: 
                       >
                         Export .xlsx
                       </button>
-                      {gridMsg && <span className="text-sm text-emerald-600">{gridMsg}</span>}
+                      {gridMsg && <span className="text-xs text-emerald-600">{gridMsg}</span>}
                       {gridDirty && !gridBusy && (
                         <span className="text-xs text-amber-600">unsaved changes</span>
                       )}
                     </div>
-                    {gridErr && (
-                      <p className="mt-2 rounded bg-red-50 px-2 py-1.5 text-xs text-red-700">
-                        {gridErr}
-                      </p>
-                    )}
                   </>
+                ) : (
+                  !gridErr && <p className="text-sm text-slate-400">Loading vocabulary…</p>
+                )}
+                {gridErr && (
+                  <p className="mt-2 rounded bg-red-50 px-2 py-1.5 text-xs text-red-700">{gridErr}</p>
                 )}
               </div>
             )}
@@ -380,7 +267,11 @@ export default function ReviewSidebar({ docId, item, onClose, onExplainSaved }: 
 
           {/* ---- AI answer ---- */}
           <section className="rounded-md">
-            <SectionToggle label="AI Answer" open={open === "ai"} onClick={() => void toggle("ai")} />
+            <SectionToggle
+              label="AI Answer"
+              open={open === "ai"}
+              onClick={() => void toggle("ai")}
+            />
             {open === "ai" && (
               <div className="mt-2">
                 {!item ? (

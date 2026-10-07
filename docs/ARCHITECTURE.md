@@ -145,7 +145,7 @@ App.tsx (BrowserRouter)
 ├── "/session/:sid/result"  ResultPage        —— 载入会话 → 三区 Review Workspace（workspace/Workspace）
 └── "/settings"             SettingsPage      —— LLM provider 配置
 
-components/  RichText (markdown+KaTeX+图片) · workspace/（Workspace 三区+顶栏+移动抽屉 · QuestionNav 题号导航 · Inspector Tab(解析/AI/导出) · VocabularySheet 底部词汇表 · Splitter 分隔条 · usePersistentLayout · useMediaQuery · icons）· BuiltinBankCard · ImportPipeline · SatMdTemplate · LibraryList · ReviewSidebar（旧版手风琴，保留回滚）
+components/  RichText (markdown+KaTeX+图片) · workspace/（Workspace 三区+顶栏+移动抽屉 · QuestionNav 题号导航 · Inspector Tab(解析/AI/导出) · VocabularySheet 底部词汇表 · VocabGrid v2 电子表格(稳定 ID/列宽/排序/筛选/粘贴/键盘) · Splitter 分隔条 · usePersistentLayout · useMediaQuery · icons）· BuiltinBankCard · ImportPipeline · SatMdTemplate · LibraryList · ReviewSidebar（旧版手风琴，保留回滚）
 api/client.ts —— 类型化 API client（所有 /api 路径由 Vite 代理）
 ```
 
@@ -185,7 +185,7 @@ app/
 │   ├── documents.py        文档/题目持久化 + write/read satmd + 资源
 │   ├── imports.py          import_jobs 持久化（状态机）
 │   ├── sessions.py         会话与判分（submit / regrade / history）
-│   ├── words.py            词汇表 grid（headers + rows_json）
+│   ├── words.py            词汇表 grid v2（columns_json + rows_json + view_json；v1 读取自愈升级）
 │   └── settings.py         settings 键值
 ├── export/                  PDF/DOCX 导出（0 token）
 │   ├── model.py            ExportDoc/ExportQuestion（聚合题目 + 词汇表）
@@ -236,8 +236,8 @@ POST /api/sessions/{id}/regrade -> 补录答案键后按已存 chosen 重判（�
 
 ```
 解析（手写，0 token）  PUT  /api/documents/{id}/questions/{qid}/explain     -> 直存 DB（空串清除）
-词汇表（0 token）      GET/PUT /api/documents/{id}/words                    -> headers+rows_json
-词汇导出（0 token）    GET  /api/documents/{id}/words/export                -> .xlsx（openpyxl）
+词汇表（0 token）      GET/PUT /api/documents/{id}/words                    -> v2 columns+rows+view（兼容 v1 headers+rows）
+词汇导出（0 token）    GET  /api/documents/{id}/words/export                -> .xlsx（openpyxl；列序/列宽/冻结表头）
 AI 讲解（显式）        POST /api/ai/answer {document_id, question_id}       -> 仅题干+正确选项；无 key 409
 导出（0 token）        GET  /api/documents/{id}/export/{pdf|docx}          -> WeasyPrint + python-docx；数学走 MathJax SVG
 ```

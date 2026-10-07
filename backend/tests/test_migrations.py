@@ -23,6 +23,27 @@ def test_migrate_adds_missing_document_columns() -> None:
     conn.close()
 
 
+def test_migrate_adds_word_grid_v2_columns() -> None:
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+    conn.execute("CREATE TABLE documents (id INTEGER PRIMARY KEY, title TEXT)")
+    conn.execute(
+        "CREATE TABLE word_grids (document_id INTEGER PRIMARY KEY, headers TEXT, rows_json TEXT)"
+    )
+    conn.execute(
+        "INSERT INTO word_grids (document_id, headers, rows_json) VALUES (1, '[\"Word\"]', '[]')"
+    )
+
+    _migrate(conn)
+
+    cols = {row["name"] for row in conn.execute("PRAGMA table_info(word_grids)")}
+    assert {"columns_json", "view_json", "version"} <= cols
+    row = conn.execute("SELECT * FROM word_grids WHERE document_id = 1").fetchone()
+    assert row["headers"] == '["Word"]'               # data preserved
+    assert row["version"] == 1                        # legacy rows stay v1 until re-saved
+    conn.close()
+
+
 def test_migrate_is_idempotent() -> None:
     conn = sqlite3.connect(":memory:")
     conn.row_factory = sqlite3.Row

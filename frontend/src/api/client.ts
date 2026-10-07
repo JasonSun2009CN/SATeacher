@@ -115,9 +115,27 @@ export interface ProbeResult {
 }
 
 /** Free-form vocabulary grid (default headers Word | Meaning | Notes). */
+export interface VocabColumn {
+  id: string;
+  name: string;
+  width: number;
+}
+
+export interface VocabRow {
+  id: string;
+  cells: Record<string, string>;
+}
+
+export interface WordView {
+  sort: { columnId: string; direction: "asc" | "desc" } | null;
+  filter: Record<string, string>;
+}
+
 export interface WordGrid {
-  headers: string[];
-  rows: string[][];
+  version: number;
+  columns: VocabColumn[];
+  rows: VocabRow[];
+  view: WordView;
 }
 
 /** One module of a built-in bank, as listed on the import page. */

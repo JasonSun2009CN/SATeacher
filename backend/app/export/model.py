@@ -82,11 +82,14 @@ def build_export(doc_id: int) -> ExportDoc | None:
             )
         )
     grid = words_repo.get_grid(doc_id)
+    columns = grid["columns"]
     return ExportDoc(
         title=doc["title"],
         source_filename=doc.get("source_filename", ""),
         created_at=doc.get("created_at", ""),
         questions=questions,
-        vocab_headers=grid["headers"],
-        vocab_rows=grid["rows"],
+        vocab_headers=[c["name"] for c in columns],
+        vocab_rows=[
+            [row["cells"].get(c["id"], "") for c in columns] for row in grid["rows"]
+        ],
     )

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, ApiError, type WordGrid } from "../../api/client";
 import Splitter from "./Splitter";
+import VocabGrid from "./VocabGrid";
 import { ChevronDownIcon, MaximizeIcon } from "./icons";
 
 interface Props {
@@ -18,10 +19,11 @@ function errText(err: unknown): string {
 }
 
 /**
- * Full-width bottom sheet holding the vocabulary table.
+ * Full-width bottom sheet holding the vocabulary grid.
  *
- * Batch 9 relocates the existing inline editor here (collapsible, resizable,
- * persistent height); the grid itself is upgraded to v2 in a later batch.
+ * Batch 9 relocates the editor here (collapsible, resizable, persistent
+ * height); batch 10 upgrades the grid itself to v2 (stable ids, widths,
+ * sort/filter, paste) via {@link VocabGrid}.
  */
 export default function VocabularySheet({
   docId,
@@ -56,40 +58,6 @@ export default function VocabularySheet({
     setDirty(true);
     setMsg(null);
     setErr(null);
-  }
-
-  function setCell(ri: number, ci: number, value: string) {
-    if (!grid) return;
-    const rows = grid.rows.map((row, r) =>
-      r === ri ? row.map((cell, c) => (c === ci ? value : cell)) : row,
-    );
-    mutate({ ...grid, rows });
-  }
-
-  function addRow() {
-    if (!grid) return;
-    mutate({ ...grid, rows: [...grid.rows, new Array(grid.headers.length).fill("")] });
-  }
-
-  function delRow(ri: number) {
-    if (!grid) return;
-    mutate({ ...grid, rows: grid.rows.filter((_r, i) => i !== ri) });
-  }
-
-  function addColumn() {
-    if (!grid) return;
-    mutate({
-      headers: [...grid.headers, `Column ${grid.headers.length + 1}`],
-      rows: grid.rows.map((row) => [...row, ""]),
-    });
-  }
-
-  function delColumn(ci: number) {
-    if (!grid || grid.headers.length <= 1) return;
-    mutate({
-      headers: grid.headers.filter((_h, i) => i !== ci),
-      rows: grid.rows.map((row) => row.filter((_c, i) => i !== ci)),
-    });
   }
 
   async function save(): Promise<boolean> {
@@ -141,16 +109,32 @@ export default function VocabularySheet({
           />
           Vocabulary
         </button>
-        {grid && (
-          <span className="text-xs text-slate-400">
-            {grid.rows.length} {grid.rows.length === 1 ? "word" : "words"}
-          </span>
-        )}
         {dirty && !busy && <span className="text-xs text-amber-600">unsaved changes</span>}
         {busy && <span className="text-xs text-slate-400">Saving…</span>}
         {msg && <span className="text-xs text-emerald-600">{msg}</span>}
         {err && !grid && <span className="text-xs text-red-600">{err}</span>}
-        <div className="ml-auto flex items-center gap-1">
+        <div className="ml-auto flex items-center gap-2">
+          {open && grid && (
+            <>
+              <button
+                type="button"
+                data-testid="vocab-save"
+                onClick={() => void save()}
+                disabled={!dirty || busy}
+                className="rounded-lg border px-3 py-1.5 text-sm font-medium hover:bg-slate-100 disabled:opacity-40"
+              >
+                {busy ? "Saving…" : "Save"}
+              </button>
+              <button
+                type="button"
+                data-testid="vocab-export-xlsx"
+                onClick={() => void exportXlsxFile()}
+                className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700"
+              >
+                Export .xlsx
+              </button>
+            </>
+          )}
           {open && (
             <button
               type="button"
@@ -166,112 +150,14 @@ export default function VocabularySheet({
       </header>
 
       {open && (
-        <div className="min-h-0 flex-1 overflow-auto px-3 pb-3">
+        <div className="min-h-0 flex-1 px-3 pb-3">
           {grid ? (
-            <>
-              <div className="overflow-x-auto rounded-lg border bg-white">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b bg-slate-100">
-                      {grid.headers.map((h, ci) => (
-                        <th key={ci} className="min-w-[8rem] p-1 font-semibold">
-                          <div className="flex items-center gap-1">
-                            <input
-                              value={h}
-                              onChange={(e) =>
-                                mutate({
-                                  ...grid,
-                                  headers: grid.headers.map((x, i) =>
-                                    i === ci ? e.target.value : x,
-                                  ),
-                                })
-                              }
-                              className="w-full rounded border bg-transparent px-1 py-0.5 text-xs font-semibold focus:border-blue-400 focus:outline-none"
-                            />
-                            <button
-                              onClick={() => delColumn(ci)}
-                              title="Delete column"
-                              className="shrink-0 rounded px-1 text-xs text-slate-400 hover:bg-red-100 hover:text-red-600"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        </th>
-                      ))}
-                      <th className="w-8 p-1">
-                        <button
-                          onClick={addColumn}
-                          title="Add column"
-                          className="rounded px-1.5 text-slate-500 hover:bg-slate-200"
-                        >
-                          +
-                        </button>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {grid.rows.map((row, ri) => (
-                      <tr key={ri} className="border-b last:border-0">
-                        {grid.headers.map((_h, ci) => (
-                          <td key={ci} className="p-1">
-                            <input
-                              value={row[ci] ?? ""}
-                              onChange={(e) => setCell(ri, ci, e.target.value)}
-                              className="w-full rounded border border-transparent bg-transparent px-1 py-1 text-xs hover:border-slate-200 focus:border-blue-400 focus:outline-none"
-                            />
-                          </td>
-                        ))}
-                        <td className="p-1 text-center">
-                          <button
-                            onClick={() => delRow(ri)}
-                            title="Delete row"
-                            className="rounded px-1 text-xs text-slate-400 hover:bg-red-100 hover:text-red-600"
-                          >
-                            ✕
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                    {grid.rows.length === 0 && (
-                      <tr>
-                        <td
-                          colSpan={grid.headers.length + 1}
-                          className="px-2 py-3 text-center text-xs text-slate-400"
-                        >
-                          No words yet — add your first row.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <button
-                  onClick={addRow}
-                  className="rounded-lg border px-3 py-1.5 text-sm font-medium hover:bg-slate-100"
-                >
-                  + Row
-                </button>
-                <button
-                  onClick={() => void save()}
-                  disabled={!dirty || busy}
-                  className="rounded-lg border px-3 py-1.5 text-sm font-medium hover:bg-slate-100 disabled:opacity-40"
-                >
-                  {busy ? "Saving…" : "Save"}
-                </button>
-                <button
-                  onClick={() => void exportXlsxFile()}
-                  className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700"
-                >
-                  Export .xlsx
-                </button>
-              </div>
-              {err && (
-                <p className="mt-2 rounded bg-red-50 px-2 py-1.5 text-xs text-red-700">{err}</p>
-              )}
-            </>
+            <VocabGrid grid={grid} onChange={mutate} />
           ) : (
             !err && <p className="text-sm text-slate-400">Loading vocabulary…</p>
+          )}
+          {err && (
+            <p className="mt-2 rounded bg-red-50 px-2 py-1.5 text-xs text-red-700">{err}</p>
           )}
         </div>
       )}

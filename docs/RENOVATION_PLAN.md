@@ -689,13 +689,13 @@ question ──[user 点击 Normalize to CB style]──► llm draft
 - **回滚**：旧 `ReviewSidebar.tsx` 仍在仓库；路由可直接切回。
 - **验收（已达成）**：`npm run build` 0 错误；E2E `run6.mjs` 1440/1024/375 三尺寸无横向溢出；分隔条拖拽 + 刷新持久化；底部 sheet 折叠/展开；Inspector 隐藏/重开；键盘 ←→；`role="separator"` 可聚焦。
 
-### 批 10 — Vocabulary Sheet v2
-- **目标**：迁移 + react-data-grid + 键盘/粘贴/冻结/排序/筛选/列宽持久化 + xlsx v2。
-- **改动**：`repos/words.py`、`db.py`（迁移）、`documents.py`（words 端点 v2）、`components/VocabularySheet.tsx`、`package.json`（+`react-data-grid`）、导出增强。
-- **依赖**：`react-data-grid`（先验证 React 19；**不兼容则回退自研——已接受**）。
-- **风险**：老数据兼容；grid a11y；React 19 兼容（回退自研）。
-- **回滚**：v2 字段可选，读取端兼容 v1；grid 可用旧表临时替换。
-- **验收**：迁移测试（v1→v2 往返无损）；xlsx 往返；粘贴/键盘/E2E；Numbers 打开验证。
+### 批 10 — Vocabulary Sheet v2 · ✅ 完成（2026-10-08）
+- **目标**：v1→v2 迁移 + 键盘/粘贴/冻结/排序/筛选/列宽持久化 + xlsx v2。
+- **改动**：`repos/words.py` 重写为 v2（稳定列/行 ID、列宽、view 排序/筛选；v1 读取自愈升级）；`db.py`（`word_grids` 加 `columns_json`/`view_json`/`version` + `_migrate`）；`documents.py`（`WordsPayload` 兼容 v1/v2；xlsx 按列序导出 + 列宽 + 冻结表头）；`export/model.py`（v2→导出数组）；前端新增 `components/workspace/VocabGrid.tsx`，`VocabularySheet.tsx`/`ReviewSidebar.tsx` 复用之；`client.ts` 类型 v2。
+- **依赖**：**无新依赖**（回退自研——`react-data-grid` 最新 `7.0.0-beta.61` 仍是 beta 且样式/凭据不自控，批 9 已有"无新依赖"先例）。
+- **风险**：老数据兼容（已覆盖迁移测试）；grid a11y（`role="separator"` 列宽手柄 + 键盘 ↑↓/Enter/Tab）。
+- **回滚**：v2 字段可选，读取端兼容 v1；`git revert` 单提交即可。
+- **验收（已达成）**：pytest **171**（+7：`test_words_v2.py` 6 项 + 迁移 1 项）；`npm run build` 0 错；E2E `run10.mjs` 全过（增行/改格、列宽拖拽→持久化、排序 asc/desc/none、按列筛选、多格粘贴、保存→刷新→API v2 往返、xlsx 导出、三尺寸无溢出）；`run6.mjs` 回归过。
 
 ### 批 11 — 扫描 PDF / OCR（跨平台：macOS Vision + Windows/Linux 可选 Tesseract） · 🟡 部分完成（2026-10-07 批次 C）
 - **目标**：页级文本密度检测 + **跨平台 OCR adapter** + 逐页状态/报告 + 选择性 AI 视觉。
@@ -770,7 +770,7 @@ question ──[user 点击 Normalize to CB style]──► llm draft
 
 ### 11.3 浏览器 E2E（扩展 `/tmp/e2e/`）
 - 保留 run/run2/run3/run4（并更新受设计系统影响的文案选择器）。
-- 新增：run5（导入流水线 + DOCX + 模板复制）、run6（工作台分隔条/持久化/底部 sheet/Inspector 隐藏重开）、run7（词汇表 grid + xlsx 往返）、run8（扫描/OCR/选择性 AI，mock）、run9（PDF/DOCX 导出下载 + 内容回读）。
+- 新增：run5（导入流水线 + DOCX + 模板复制）、run6（工作台分隔条/持久化/底部 sheet/Inspector 隐藏重开）、run10（词汇表 v2 grid + 键盘/粘贴/排序/筛选/列宽 + xlsx 往返）、run8（扫描/OCR/选择性 AI，mock）、run9（PDF/DOCX 导出下载 + 内容回读）。
 - 纪律沿用 `HANDOFF.md §6`：`servers.mjs` 子进程 `unref()`；等待 Tailwind uppercase 文案用 `/ready to begin/i`；结尾 `Promise.race(browser.close, 5s)` + `process.exit(0)`。
 
 ### 11.4 OCR / 文档格式 fixture

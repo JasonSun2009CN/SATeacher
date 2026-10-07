@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from io import BytesIO
 from pathlib import Path
+from typing import Any
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse, Response
@@ -39,8 +40,14 @@ class ExplainPayload(BaseModel):
 
 
 class WordsPayload(BaseModel):
-    headers: list[str]
-    rows: list[list[str]]
+    """Vocabulary grid body: v2 (``columns``/``rows``/``view``) or legacy
+    v1 (``headers``/``rows``). Fields are validated in the repo so a single
+    ``GridError`` path yields a clean 400."""
+
+    columns: Any = None
+    rows: Any = None
+    view: Any = None
+    headers: Any = None
 
 
 def _fail(message: str, status: int = 422) -> None:
@@ -150,7 +157,7 @@ def put_words(doc_id: int, payload: WordsPayload) -> dict:
         _fail("document not found", 404)
         raise                                          # pragma: no cover
     try:
-        return words_repo.save_grid(doc_id, payload.headers, payload.rows)
+        return words_repo.save_grid(doc_id, payload.model_dump(exclude_none=True))
     except words_repo.GridError as exc:
         _fail(str(exc), 400)
         raise                                          # pragma: no cover
@@ -166,16 +173,22 @@ def export_words(doc_id: int) -> Response:
 
     from openpyxl import Workbook
     from openpyxl.styles import Font
+    from openpyxl.utils import get_column_letter
 
     grid = words_repo.get_grid(doc_id)
+    columns = grid["columns"]
     wb = Workbook()
     ws = wb.active
     ws.title = "Vocabulary"
-    ws.append(grid["headers"])
+    ws.append([c["name"] for c in columns])
     for row in grid["rows"]:
-        ws.append(row)
+        ws.append([row["cells"].get(c["id"], "") for c in columns])
     for cell in ws[1]:
         cell.font = Font(bold=True)
+    ws.freeze_panes = "A2"
+    for i, col in enumerate(columns, start=1):
+        # xlsx width is in characters; px→chars ≈ width / 7, clamped.
+        ws.column_dimensions[get_column_letter(i)].width = max(8, min(60, round(col["width"] / 7)))
 
     buf = BytesIO()
     wb.save(buf)

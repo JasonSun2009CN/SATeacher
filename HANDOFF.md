@@ -28,6 +28,7 @@ f2ae30e Make vite /api proxy target configurable via SATEACHER_API env var
 |---|---|---|
 | 已提交 `c108cfb` | `backend/app/export/**`、`backend/app/imports.py`、`backend/app/api/imports.py`、`backend/app/repos/imports.py`、`backend/app/convert/{docx.py,ocr/**}`、`backend/app/db.py`、`backend/app/main.py`、`backend/tests/{test_export,test_docx_convert,test_ocr,test_imports_api,test_migrations}.py`、`README*.md`、`ROADMAP.md`、`docs/{ARCHITECTURE,RENOVATION_PLAN}.md`、前端 `ImportPipeline`/`SatMdTemplate`/`LibraryList`/`ImportPage`/`client.ts` | **批 A/B/C/D 产物**；`backend/app/export/mathjax/node_modules/` 不入库（`.gitignore`） |
 | 已提交（批 9） | `frontend/src/components/workspace/**`（`Workspace`/`QuestionNav`/`Inspector`/`VocabularySheet`/`Splitter`/`usePersistentLayout`/`useMediaQuery`/`icons`）、`frontend/src/pages/ResultPage.tsx` | **Review Workspace 外壳**；旧 `ReviewSidebar.tsx` 保留作回滚 |
+| 已提交（批 10） | `backend/app/repos/words.py`、`backend/app/db.py`、`backend/app/api/documents.py`、`backend/app/export/model.py`、`backend/tests/{test_words_v2,test_review_api,test_migrations}.py`、`frontend/src/components/workspace/{VocabGrid,VocabularySheet}.tsx`、`frontend/src/components/ReviewSidebar.tsx`、`frontend/src/api/client.ts`、`docs/*`、`ROADMAP.md`、`HANDOFF.md` | **Vocabulary Sheet v2**（稳定 ID/列宽/排序/筛选/粘贴/键盘；**无新依赖**） |
 
 > `LICENSE`、`.idea/` 为维护者本机改动/IDE 文件，提交时按需排除。
 
@@ -50,7 +51,9 @@ f2ae30e Make vite /api proxy target configurable via SATEACHER_API env var
 | **批 D（未提交，2026-10-07）** | **导入流水线骨架**（原批 8 余量）：新增 `app/imports.py`（统一 detect→convert→commit，0 token）、`repos/imports.py` + `import_jobs` 表、`api/imports.py`（create/get/commit/cancel/delete/ai-fallback(501)）；`db.py` 增 `migrate()` 与 `documents.import_source/used_ai/report_json`；`convert/model.py` 增 `PageReport` 逐页报告；`POST /api/documents` 改走同一服务；前端 `ImportPipeline.tsx`/`SatMdTemplate.tsx`/`LibraryList.tsx` + `ImportPage.tsx` 拖放与流水线 + `client.ts` 端点。**未含**：异步/分页进度、`ai-fallback` 实体 | `test_imports_api.py` 13 项 + `test_migrations.py` 3 项；pytest 164；build 0 错 |
 | **批 9（Review Workspace 外壳，2026-10-07）** | `ResultPage.tsx` 瘦身为「数据加载 + `<Workspace>`」；新增 `frontend/src/components/workspace/`：`Workspace`（三区 + 顶栏 + 移动抽屉）、`QuestionNav`（过滤 + 状态色题号网格）、`Inspector`（**Tab**：Explanation/AI Tutor/Export）、`VocabularySheet`（底部全宽折叠/拖高/最大化）、`Splitter`（`role="separator"`，Pointer Events + 方向键）、`usePersistentLayout`（`localStorage` `sateacher.workspace.<docId>`）、`useMediaQuery`、`icons`（内联 SVG，**无新依赖**）。窄屏题号/Inspector 收为抽屉；旧 `ReviewSidebar.tsx` 保留回滚 | `npm run build` 0 错；新增 E2E `run6.mjs` 三栏/拖拽/持久化/sheet/Inspector/三尺寸全过；pytest 164 不变 |
 
-基线：**164 pytest 全过**；`npm run build` 0 错误；E2E `run6.mjs`（批 9 Workspace）全过。`run/run2/run3/run4` 为批 D 导入页改版前的脚本（选择器已过时），需同步后复跑。
+| **批 10（Vocabulary Sheet v2，2026-10-08）** | `repos/words.py` v2（稳定列/行 ID、列宽、排序/筛选 view；v1 `headers+rows` 读取自愈升级）；`db.py` 迁移 `word_grids.columns_json/view_json/version`；`api/documents.py` words 端点 v2（v1 兼容）+ xlsx 列序/列宽/冻结表头；`export/model.py` 适配；新增自研 `frontend/src/components/workspace/VocabGrid.tsx`（列宽拖拽/排序/按列筛选/多格粘贴/键盘导航/冻结表头，**无新依赖**），`VocabularySheet`/`ReviewSidebar` 复用 | pytest 171（+7）；E2E `run10.mjs` 全过；`run6.mjs` 回归过 |
+
+基线：**171 pytest 全过**；`npm run build` 0 错误；E2E `run6.mjs`（批 9 Workspace）与 `run10.mjs`（批 10 词汇表 v2）全过。`run/run2/run3/run4` 为批 D 导入页改版前的脚本（选择器已过时），需同步后复跑。
 
 ## 4. 运行与验证命令
 
@@ -59,7 +62,7 @@ f2ae30e Make vite /api proxy target configurable via SATEACHER_API env var
 scripts/dev.sh            # 或分别起 uvicorn / vite
 
 # 后端测试（从 backend/ 跑）
-cd backend && ../.venv/bin/python -m pytest -q        # 基线 164
+cd backend && ../.venv/bin/python -m pytest -q        # 基线 171
 
 # 前端构建（tsc + vite）
 cd frontend && npm run build
@@ -69,6 +72,8 @@ cd /tmp/e2e && node run.mjs      # 导入→练习→判分→重做
 cd /tmp/e2e && node run2.mjs     # 答案录入/图片/设置
 cd /tmp/e2e && node run3.mjs     # 27题全流程 + 结果页三栏 + 侧边栏 + mock LLM
 cd /tmp/e2e && node run4.mjs     # 内置题库：卡片/分组/单加/幂等/Add all/In library 跳转
+cd /tmp/e2e && node run6.mjs     # 批9 工作台：三栏/分隔条持久化/sheet/Inspector/三尺寸
+cd /tmp/e2e && node run10.mjs    # 批10 词汇表 v2：编辑/列宽/排序/筛选/粘贴/持久化/xlsx
 ```
 
 **dev 库（`data/app.db`）勿动**：1 个用户文档（id=22，25年北美）+ 4 个用户验收空会话。

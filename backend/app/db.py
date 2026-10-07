@@ -134,9 +134,12 @@ CREATE TABLE IF NOT EXISTS notes (
 );
 
 CREATE TABLE IF NOT EXISTS word_grids (
-  document_id INTEGER PRIMARY KEY REFERENCES documents(id) ON DELETE CASCADE,
-  headers     TEXT NOT NULL DEFAULT '["Word","Meaning","Notes"]',
-  rows_json   TEXT NOT NULL DEFAULT '[]'
+  document_id  INTEGER PRIMARY KEY REFERENCES documents(id) ON DELETE CASCADE,
+  headers      TEXT NOT NULL DEFAULT '["Word","Meaning","Notes"]',
+  rows_json    TEXT NOT NULL DEFAULT '[]',
+  columns_json TEXT,
+  view_json    TEXT,
+  version      INTEGER NOT NULL DEFAULT 1
 );
 
 CREATE TABLE IF NOT EXISTS settings (
@@ -200,6 +203,19 @@ def _migrate(conn: sqlite3.Connection) -> None:
         "CREATE UNIQUE INDEX IF NOT EXISTS ux_documents_builtin_key"
         " ON documents(builtin_key) WHERE builtin_key IS NOT NULL"
     )
+
+    # word_grids v2 (batch 10): stable column/row ids, widths, saved view.
+    if conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'word_grids'"
+    ).fetchone():
+        grid_cols = {row["name"] for row in conn.execute("PRAGMA table_info(word_grids)")}
+        for name, ddl in (
+            ("columns_json", "TEXT"),
+            ("view_json", "TEXT"),
+            ("version", "INTEGER NOT NULL DEFAULT 1"),
+        ):
+            if name not in grid_cols:
+                conn.execute(f"ALTER TABLE word_grids ADD COLUMN {name} {ddl}")
 
 
 def init_db() -> None:
