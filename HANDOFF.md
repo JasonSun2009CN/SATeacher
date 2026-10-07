@@ -22,19 +22,14 @@ f2ae30e Make vite /api proxy target configurable via SATEACHER_API env var
 8894611 Initial commit
 ```
 
-工作区有意保留、**不纳入提交**：
+工作区现状（2026-10-07 起）：批次 A–D（含批 6 及更早）已入库；批 9 随本次提交入库（见 `git log`）。
 
 | 状态 | 路径 | 说明 |
 |---|---|---|
-| ` M` | `LICENSE` | 用户自己的改动 |
-| `A ` (staged) | `.idea/` | 用户暂存的 IDE 文件 |
-| `??` | `backend/app/providers.py`、`backend/app/api/settings.py`、`frontend/src/pages/SettingsPage.tsx`、`backend/tests/test_settings_api.py`、`backend/tests/test_llm_base.py`、`docs/PLAN.md` 等 | **批6 产物，已完成未提交** |
-| `??` / `M` | `backend/app/export/**`、`backend/tests/test_export.py`、`backend/app/api/documents.py`、`frontend/src/api/client.ts`、`frontend/src/components/ReviewSidebar.tsx`、`docs/ARCHITECTURE.md`、`ROADMAP.md`、`docs/RENOVATION_PLAN.md` | **批 A（PDF/DOCX 导出，2026-10-07）产物，未提交**；`backend/app/export/mathjax/node_modules/` **不入库**（`.gitignore`） |
-| `??` / `M` | `backend/app/convert/docx.py`、`backend/tests/test_docx_convert.py`、`backend/tests/fixtures.py`、`backend/tests/conftest.py`、`backend/tests/test_api.py`、`frontend/src/pages/ImportPage.tsx`、`backend/app/api/documents.py` | **批 B（DOCX 导入，2026-10-07）产物，未提交** |
-| `??` / `M` | `backend/app/convert/ocr/**`、`backend/app/convert/pdf.py`、`backend/app/convert/normalize.py`、`backend/app/main.py`、`backend/tests/test_ocr.py`、`backend/tests/test_api.py`、`backend/tests/fixtures.py`、`backend/tests/conftest.py`、`frontend/src/pages/ImportPage.tsx`、`frontend/src/api/client.ts` | **批 C（扫描 PDF / OCR，2026-10-07）产物，未提交**；无新增 Python 依赖 |
-| `??` / `M` | `backend/app/imports.py`、`backend/app/api/imports.py`、`backend/app/repos/imports.py`、`backend/app/db.py`、`backend/app/repos/documents.py`、`backend/app/convert/model.py`、`backend/app/convert/docx.py`、`backend/app/main.py`、`backend/tests/test_imports_api.py`、`backend/tests/test_migrations.py`、`frontend/src/components/ImportPipeline.tsx`、`SatMdTemplate.tsx`、`LibraryList.tsx`、`frontend/src/pages/ImportPage.tsx`、`frontend/src/api/client.ts` | **批 D（导入流水线骨架，2026-10-07）产物，未提交** |
+| 已提交 `c108cfb` | `backend/app/export/**`、`backend/app/imports.py`、`backend/app/api/imports.py`、`backend/app/repos/imports.py`、`backend/app/convert/{docx.py,ocr/**}`、`backend/app/db.py`、`backend/app/main.py`、`backend/tests/{test_export,test_docx_convert,test_ocr,test_imports_api,test_migrations}.py`、`README*.md`、`ROADMAP.md`、`docs/{ARCHITECTURE,RENOVATION_PLAN}.md`、前端 `ImportPipeline`/`SatMdTemplate`/`LibraryList`/`ImportPage`/`client.ts` | **批 A/B/C/D 产物**；`backend/app/export/mathjax/node_modules/` 不入库（`.gitignore`） |
+| 已提交（批 9） | `frontend/src/components/workspace/**`（`Workspace`/`QuestionNav`/`Inspector`/`VocabularySheet`/`Splitter`/`usePersistentLayout`/`useMediaQuery`/`icons`）、`frontend/src/pages/ResultPage.tsx` | **Review Workspace 外壳**；旧 `ReviewSidebar.tsx` 保留作回滚 |
 
-**提交约定**：`git commit -m "..." -- <paths>`（pathspec 方式，保护上表不被带进去）；**每次提交前必须用 question 工具问用户**。
+> `LICENSE`、`.idea/` 为维护者本机改动/IDE 文件，提交时按需排除。
 
 ## 3. 已完成的工作
 
@@ -53,8 +48,9 @@ f2ae30e Make vite /api proxy target configurable via SATEACHER_API env var
 | **批 B（未提交，2026-10-07）** | **DOCX 导入**（原批 8 的一部分）：新增 `backend/app/convert/docx.py`（python-docx 段落/表格/图片/软换行/VML；复用 PDF 的题号/选项/material-stem/答案键管线；**zip 安全校验**：条目数/解压总量/压缩比/宏；图片经 PyMuPDF 归一到 PNG）；`documents.py` 加 `.docx` 分支；ImportPage `accept`/文案更新。**原批 8 其余（import_jobs 流水线 / 模板预览 / Library 列表 / 拖放）未做** | `test_docx_convert.py` 12 项 + API 1 项；pytest 137；build 0 错 |
 | **批 C（未提交，2026-10-07）** | **扫描 PDF / OCR**（原批 11 基础版）：新增 `backend/app/convert/ocr/{base,vision,tesseract}.py`；`convert/pdf.py` 页级文本密度检测 + 低密度页栅格化 OCR + 坐标归一化 + `is_chrome` 过滤；`normalize.option_markers` 容忍 OCR 丢空格；`/api/health` 增 `ocr`；导入页显示 OCR 状态。**零新增 Python 依赖**（Tesseract 走系统二进制子进程；macOS Vision 需可选安装 pyobjc）。**原批 11 其余（逐页报告 / 选择性 AI 视觉）未做** | `test_ocr.py` 9 项 + API 2 项；pytest 148；build 0 错 |
 | **批 D（未提交，2026-10-07）** | **导入流水线骨架**（原批 8 余量）：新增 `app/imports.py`（统一 detect→convert→commit，0 token）、`repos/imports.py` + `import_jobs` 表、`api/imports.py`（create/get/commit/cancel/delete/ai-fallback(501)）；`db.py` 增 `migrate()` 与 `documents.import_source/used_ai/report_json`；`convert/model.py` 增 `PageReport` 逐页报告；`POST /api/documents` 改走同一服务；前端 `ImportPipeline.tsx`/`SatMdTemplate.tsx`/`LibraryList.tsx` + `ImportPage.tsx` 拖放与流水线 + `client.ts` 端点。**未含**：异步/分页进度、`ai-fallback` 实体 | `test_imports_api.py` 13 项 + `test_migrations.py` 3 项；pytest 164；build 0 错 |
+| **批 9（Review Workspace 外壳，2026-10-07）** | `ResultPage.tsx` 瘦身为「数据加载 + `<Workspace>`」；新增 `frontend/src/components/workspace/`：`Workspace`（三区 + 顶栏 + 移动抽屉）、`QuestionNav`（过滤 + 状态色题号网格）、`Inspector`（**Tab**：Explanation/AI Tutor/Export）、`VocabularySheet`（底部全宽折叠/拖高/最大化）、`Splitter`（`role="separator"`，Pointer Events + 方向键）、`usePersistentLayout`（`localStorage` `sateacher.workspace.<docId>`）、`useMediaQuery`、`icons`（内联 SVG，**无新依赖**）。窄屏题号/Inspector 收为抽屉；旧 `ReviewSidebar.tsx` 保留回滚 | `npm run build` 0 错；新增 E2E `run6.mjs` 三栏/拖拽/持久化/sheet/Inspector/三尺寸全过；pytest 164 不变 |
 
-基线：**164 pytest 全过**；`npm run build` 0 错误；E2E 四套（run/run2/run3/run4）全过。
+基线：**164 pytest 全过**；`npm run build` 0 错误；E2E `run6.mjs`（批 9 Workspace）全过。`run/run2/run3/run4` 为批 D 导入页改版前的脚本（选择器已过时），需同步后复跑。
 
 ## 4. 运行与验证命令
 

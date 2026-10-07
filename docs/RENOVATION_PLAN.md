@@ -36,6 +36,14 @@
 > - 前端：`client.ts` 新增 `ImportJob`/`ImportPageReport` 与 `createImport/getImport/commitImport/cancelImport/deleteImport`；新增 `ImportPipeline.tsx`（阶段条 + 逐页状态 + 警告 + Commit/Cancel）、`SatMdTemplate.tsx`（可复制/下载的 `.sat.md` 模板）、`LibraryList.tsx`（紧凑列表取代卡片墙）；`ImportPage.tsx` 加入**拖放投放区**并切换为流水线流程（干净转换自动提交，有疑点进复核）。
 > - 测试新增 `test_imports_api.py` **13 项** + `test_migrations.py` **3 项**；后端 **164 passed**、`npm run build` 0 错误。
 > - **未含**：真正的异步/分页进度（当前转换为同步执行，POST 即返回结果）、导入取消后的中间态清理策略细化、`ai-fallback` 实体（暂 501）。
+>
+> **批次 9（Review Workspace 外壳，2026-10-07）**
+> - `ResultPage.tsx` 瘦身为「加载数据 + `<Workspace>`」；新增 `frontend/src/components/workspace/`：`Workspace.tsx`（三区编排 + 顶部栏 + 移动端抽屉）、`QuestionNav.tsx`（过滤分段 + 状态色题号网格）、`Inspector.tsx`（**Tab** 而非手风琴：Explanation · AI Tutor · Export）、`VocabularySheet.tsx`（**底部全宽、可折叠/可拖高**的词汇表，迁移原右栏内联编辑表）、`Splitter.tsx`（Pointer Events 可拖 + 方向键可达，`role="separator"`）、`usePersistentLayout.ts`（`localStorage` key `sateacher.workspace.<docId>`）、`useMediaQuery.ts`、`icons.tsx`（**无新依赖**：内联 SVG 图标）。
+> - **布局持久化**：右栏宽 · 左栏宽 · 底部高 · 折叠态 · 当前 Tab；分隔条双击复位。
+> - **响应式**：`≥1024` 三栏可拖；`<1024` 题号与 Inspector 收为**抽屉**（顶部「☰ Questions」/ Inspector 按钮），底部 sheet 保留。
+> - **保留** `ReviewSidebar.tsx` 作为回滚路径（已不再挂载）；`#qindex` / `#qcontent` 锚点保留。
+> - 验证：`npm run build` 0 错误；新增 E2E `run6.mjs`（隔离服务器，不碰用户数据）全过——三栏渲染、分隔条拖拽加宽、刷新后持久化、底部 sheet 折叠/展开、Inspector 隐藏/重开、1440/1024/375 三尺寸无横向溢出；后端 **164 passed** 不变。
+> - 已知偏差：底部 sheet 目前横跨**中栏**（原计划「左+中」），后续按需调整。
 
 > 已确认的关键技术选择（由维护者拍板）：
 > 1. **PDF/DOCX 工具链 = WeasyPrint + python-docx**（WeasyPrint 需系统库：pango/cairo/gdk-pixbuf/harfbuzz）。
@@ -673,13 +681,13 @@ question ──[user 点击 Normalize to CB style]──► llm draft
 - **回滚**：删除 `.docx`/`/api/imports` 分支即可；旧 `POST /api/documents` 仍可用。
 - **验收（已达成）**：流水线 13 项 + 迁移 3 项 + DOCX 用例全过；真实文件离线导入成功，0 token。
 
-### 批 9 — Review Workspace 外壳（复用现有端点）
-- **目标**：三区 + 分隔条 + 布局持久化 + Inspector Tab + 底部词汇表占位。
-- **改动**：`ResultPage.tsx`、`ReviewSidebar.tsx` → `components/workspace/*`（Inspector、QuestionNav、Splitter、usePersistentLayout）。
-- **依赖**：无新依赖。
-- **风险**：flex 挤 0 宽（历史 bug）；嵌套滚动。
-- **回滚**：保留旧组件文件，路由切换开关。
-- **验收**：1440/1024/375 三尺寸 E2E；键盘 ←→；focus 可见；无横向溢出。
+### 批 9 — Review Workspace 外壳（复用现有端点） · ✅ 完成（2026-10-07）
+- **目标**：三区 + 分隔条 + 布局持久化 + Inspector Tab + 底部词汇表 sheet。
+- **改动**：`ResultPage.tsx` 瘦身；新增 `components/workspace/*`（`Workspace`、`QuestionNav`、`Inspector`、`VocabularySheet`、`Splitter`、`usePersistentLayout`、`useMediaQuery`、`icons`）。原 `ReviewSidebar.tsx` 保留作回滚。
+- **依赖**：**无新依赖**（图标为内联 SVG，非 `lucide-react`）。
+- **风险**：flex 挤 0 宽（历史 bug）；嵌套滚动 → 以 `min-h-0` + 单滚动区（中栏 `main`）化解。
+- **回滚**：旧 `ReviewSidebar.tsx` 仍在仓库；路由可直接切回。
+- **验收（已达成）**：`npm run build` 0 错误；E2E `run6.mjs` 1440/1024/375 三尺寸无横向溢出；分隔条拖拽 + 刷新持久化；底部 sheet 折叠/展开；Inspector 隐藏/重开；键盘 ←→；`role="separator"` 可聚焦。
 
 ### 批 10 — Vocabulary Sheet v2
 - **目标**：迁移 + react-data-grid + 键盘/粘贴/冻结/排序/筛选/列宽持久化 + xlsx v2。

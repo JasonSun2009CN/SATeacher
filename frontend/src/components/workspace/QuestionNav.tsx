@@ -33,7 +33,7 @@ export default function QuestionNav({
   ];
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div id="qindex" className="flex h-full min-h-0 flex-col">
       <div className="flex items-center justify-between px-2 pt-2">
         <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
           Questions
@@ -76,7 +76,6 @@ export default function QuestionNav({
           <div className="grid grid-cols-6 gap-1.5 sm:grid-cols-10 lg:grid-cols-4">
             {visible.map((item) => {
               const status = statusOf(item);
-              const sel = selectedId === item.question_id;
               return (
                 <button
                   key={item.question_id}

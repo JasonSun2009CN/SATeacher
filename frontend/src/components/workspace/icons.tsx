@@ -1,11 +1,12 @@
-import type { SVGProps } from "react";
-
 /**
  * Small inline icon set for the workspace shell — no icon dependency.
  * All icons share a 24px viewBox and inherit `currentColor`, so they scale
  * with the surrounding text and stay crisp at any size.
  */
-type IconProps = React.SVGProps<SVGSVGElement> & { size?: number };
+type Props = {
+  size?: number;
+  children: React.ReactNode;
+} & React.SVGProps<SVGSVGElement>;
 
 function Svg({ size = 20, children, ...rest }: Props) {
   return (
@@ -28,11 +29,9 @@ function Svg({ size = 20, children, ...rest }: Props) {
   );
 }
 
-type Props = {
-  children: React.ReactNode;
-} & React.SVGProps<SVGSVGElement>;
+type IconProps = React.SVGProps<SVGSVGElement> & { size?: number };
 
-export function PanelRightOpenIcon({ ...rest }: React.SVGProps<SVGSVGElement>) {
+export function PanelRightOpenIcon({ ...rest }: IconProps) {
   return (
     <Svg {...rest}>
       <rect width="18" height="18" x="3" y="3" rx="2" />
@@ -42,7 +41,7 @@ export function PanelRightOpenIcon({ ...rest }: React.SVGProps<SVGSVGElement>) {
   );
 }
 
-export function PanelRightCloseIcon({ ...rest }: React.SVGProps<SVGSVGElement>) {
+export function PanelRightCloseIcon({ ...rest }: IconProps) {
   return (
     <Svg {...rest}>
       <rect width="18" height="18" x="3" y="3" rx="2" />
@@ -52,7 +51,7 @@ export function PanelRightCloseIcon({ ...rest }: React.SVGProps<SVGSVGElement>) 
   );
 }
 
-export function MenuIcon({ ...rest }: React.SVGProps<SVGSVGElement>) {
+export function MenuIcon({ ...rest }: IconProps) {
   return (
     <Svg {...rest}>
       <path d="M4 6h16" />
@@ -62,7 +61,7 @@ export function MenuIcon({ ...rest }: React.SVGProps<SVGSVGElement>) {
   );
 }
 
-export function ChevronLeftIcon({ ...rest }: React.SVGProps<SVGSVGElement>) {
+export function ChevronLeftIcon({ ...rest }: IconProps) {
   return (
     <Svg {...rest}>
       <path d="m15 18-6-6 6-6" />
@@ -70,7 +69,7 @@ export function ChevronLeftIcon({ ...rest }: React.SVGProps<SVGSVGElement>) {
   );
 }
 
-export function ChevronRightIcon({ ...rest }: React.SVGProps<SVGSVGElement>) {
+export function ChevronRightIcon({ ...rest }: IconProps) {
   return (
     <Svg {...rest}>
       <path d="m9 18 6-6-6-6" />
@@ -78,7 +77,7 @@ export function ChevronRightIcon({ ...rest }: React.SVGProps<SVGSVGElement>) {
   );
 }
 
-export function CloseIcon({ ...rest }: React.SVGProps<SVGSVGElement>) {
+export function CloseIcon({ ...rest }: IconProps) {
   return (
     <Svg {...rest}>
       <path d="M18 6 6 18" />
@@ -87,7 +86,7 @@ export function CloseIcon({ ...rest }: React.SVGProps<SVGSVGElement>) {
   );
 }
 
-export function ChevronDownIcon({ ...rest }: React.SVGProps<SVGSVGElement>) {
+export function ChevronDownIcon({ ...rest }: IconProps) {
   return (
     <Svg {...rest}>
       <path d="m6 9 6 6 6-6" />
@@ -95,7 +94,7 @@ export function ChevronDownIcon({ ...rest }: React.SVGProps<SVGSVGElement>) {
   );
 }
 
-export function MaximizeIcon({ ...rest }: React.SVGProps<SVGSVGElement>) {
+export function MaximizeIcon({ ...rest }: IconProps) {
   return (
     <Svg {...rest}>
       <path d="M8 3H5a2 2 0 0 0-2 2v3" />

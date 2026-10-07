@@ -1,7 +1,7 @@
 # SATeacher — Architecture
 
 > 本地优先（local-first）的 SAT 刷题工具。单机运行：FastAPI 后端 + React 前端 + SQLite 单文件；PDF 由 PyMuPDF 确定性转换；LLM 仅在用户显式点击时调用（导入主链路 0 token）。
-> 基线：`HEAD=abe3a0d`、pytest **164 passed**、`npm run build` 0 错误。
+> 基线：`HEAD=c108cfb`、pytest **164 passed**、`npm run build` 0 错误、E2E `run6`（Review Workspace）全过。
 > 相关：`README.md`、`docs/PLAN.md`（决策/批次）、`docs/SAT-MD.md`（格式）、`docs/RENOVATION_PLAN.md`（改造计划）、`ROADMAP.md`。
 
 ---
@@ -142,12 +142,14 @@ App.tsx (BrowserRouter)
 ├── "/"                     ImportPage        —— 拖放导入 + 流水线(ImportPipeline) + .sat.md 模板 + LibraryList + BuiltinBankCard
 ├── "/doc/:id/answers"      AnswerKeyPage     —— 答案网格 + 批量粘贴 + 预览
 ├── "/doc/:id/practice"     PracticePage      —— 全屏 Bluebook 练习
-├── "/session/:sid/result"  ResultPage        —— 结果 + ReviewSidebar
+├── "/session/:sid/result"  ResultPage        —— 载入会话 → 三区 Review Workspace（workspace/Workspace）
 └── "/settings"             SettingsPage      —— LLM provider 配置
 
-components/  RichText (markdown+KaTeX+图片) · ReviewSidebar (手风琴: 解析/词汇/AI/导出) · BuiltinBankCard · ImportPipeline · SatMdTemplate · LibraryList
+components/  RichText (markdown+KaTeX+图片) · workspace/（Workspace 三区+顶栏+移动抽屉 · QuestionNav 题号导航 · Inspector Tab(解析/AI/导出) · VocabularySheet 底部词汇表 · Splitter 分隔条 · usePersistentLayout · useMediaQuery · icons）· BuiltinBankCard · ImportPipeline · SatMdTemplate · LibraryList · ReviewSidebar（旧版手风琴，保留回滚）
 api/client.ts —— 类型化 API client（所有 /api 路径由 Vite 代理）
 ```
+
+结果页布局持久化在 `localStorage` 键 `sateacher.workspace.<docId>`（左右栏宽、底部高、折叠态、当前 Tab）；可拖拽分隔条为 `role="separator"` 且支持方向键。
 
 ---
 

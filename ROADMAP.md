@@ -1,8 +1,8 @@
 # SATeacher — ROADMAP
 
 > 本地优先的 SAT 刷题工具：**导入 PDF/题库 → 补录答案 → Bluebook 风格全屏练习 → 错题复盘/知识点整理 → 生词本 → PDF/DOCX 导出**。
-> 状态快照：**2026-10-07** ｜ `HEAD=abe3a0d` ｜ pytest **164 passed** ｜ E2E `run/run2/run3/run4` 全过 ｜ `npm run build` 0 错误。
-> **最近交付：批次 A（PDF/DOCX 导出）+ 批次 B（DOCX 导入）+ 批次 C（扫描 PDF / OCR）+ 批次 D（导入流水线骨架）已落地** —— 见 §1「导出」「导入」、§3 M2/M5/M7。
+> 状态快照：**2026-10-07** ｜ `HEAD=c108cfb` ｜ pytest **164 passed** ｜ E2E `run6`（Workspace）全过 ｜ `npm run build` 0 错误。
+> **最近交付：批次 A（PDF/DOCX 导出）+ 批次 B（DOCX 导入）+ 批次 C（扫描 PDF / OCR）+ 批次 D（导入流水线骨架）+ 批次 9（Review Workspace 外壳）已落地** —— 见 §1「导出」「导入」「复盘」、§3 M2/M3/M5/M7。
 > 相关文档：[`README.md`](README.md) · [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) · [`docs/PLAN.md`](docs/PLAN.md) · [`docs/SAT-MD.md`](docs/SAT-MD.md) · [`docs/RENOVATION_PLAN.md`](docs/RENOVATION_PLAN.md)
 
 ---
@@ -40,11 +40,14 @@
 - ✅ 开始屏（全屏）；单题视图；题号导航；计时；标记；上一题/下一题；键盘 A–D / ←→；交卷。
 - ✅ 无答案文档：交卷后跳转补录答案再判分；**StrictMode 双启动已修复**。
 
-### 结果 / 复盘
+### 结果 / 复盘（✅ IDE 式工作台已落地，2026-10-07）
 - ✅ 汇总（得分、用时、Practice again、Back to library）。
-- ✅ 三栏 master–detail：题号索引 + 单题区 + 右侧 `ReviewSidebar`。
-- ✅ 过滤 All / Correct / Wrong；正确/错误/未作答状态；补键重判（`regrade`）。
-- ✅ `ReviewSidebar`：**手写解析**（0 token，直存 DB）、**词汇表**（`Word|Meaning|Notes`，行列增删改 + 保存）、**AI 讲解**（显式；上下文=题干+正确选项；无 key 409）、**导出入口**。
+- ✅ **三区固定工作台**：左「题号导航」（过滤 All/Correct/Wrong + 状态色网格，当前题 `aria-current`）、中「题目」唯一滚动区、右「Study Inspector」（**Tab**：Explanation / AI Tutor / Export）。
+- ✅ 可拖拽**分隔条**（`role="separator"`、方向键可达、双击复位）+ **布局持久化**（`localStorage` `sateacher.workspace.<docId>`：左右栏宽、底部高、折叠态、当前 Tab）。
+- ✅ **底部 Vocabulary Sheet**：全宽、可折叠、可拖高、可最大化（承载词汇表编辑：`Word|Meaning|Notes` 行列增删改 + 保存 + xlsx）。
+- ✅ 窄屏（`<1024`）题号与 Inspector 收为**抽屉**；`<640` 单列。
+- ✅ **手写解析**（0 token，直存 DB）；**AI 讲解**（显式；无 key 409）；**导出入口**（PDF/DOCX/xlsx）。
+- ⚠️ 缺失：词汇表 v2（列 ID/宽/冻结/粘贴/排序，见 M4）；AI 结果 "Save as explanation" 来源徽章/时间（M7）。
 
 ### 导出（✅ PDF/DOCX 已落地，2026-10-07）
 - ✅ 文档导出：**PDF**（WeasyPrint：A4、页脚页码、题号/选项/答案键/解析、内嵌图片与 MathJax SVG 公式）。
@@ -60,7 +63,7 @@
 
 ### 工程 / 测试
 - ✅ pytest **164**（parser / convert / bluebook / **docx 12 项** / **ocr 9 项** / **导入流水线 13 项** / **迁移 3 项** / builtin / llm base/fallback / api / **export 7 项** / regrade / review / settings）。
-- ✅ 浏览器 E2E `run/run2/run3/run4`；`npm run build` 类型检查 + 构建。
+- ✅ 浏览器 E2E `run6`（批 9 Workspace：三栏/分隔条持久化/sheet/Inspector/三尺寸）；`npm run build` 类型检查 + 构建。
 
 ---
 
@@ -69,7 +72,7 @@
 | 领域 | 缺口 |
 |---|---|
 | 导入 | ~~DOCX 导入~~ **已交付（批次 B）**；~~扫描 PDF OCR 基础版~~ **已交付（批次 C）**；~~导入流水线（逐页状态/报告/取消）~~ **已交付（批次 D）**；~~`.sat.md` 模板预览~~ **已交付（批次 D）**；~~资料库列表化~~ **已交付（批次 D）** |
-| 复盘 | **IDE 式工作台**（可拖拽分隔条、布局持久化、可折叠底部 Vocabulary Sheet、Inspector 隐藏/重开、Tab 化） |
+| 复盘 | ~~IDE 式工作台（可拖拽分隔条、布局持久化、可折叠底部 Vocabulary Sheet、Inspector 隐藏/重开、Tab 化）~~ **已交付（批次 9）** |
 | 词汇表 | 列 ID / 列宽 / 排序筛选偏好 / 稳定行 ID、冻结表头、粘贴填充、键盘导航（数据模型 v2） |
 | AI | 上下文扩展（material + 四选项 + 学生作答 + section）；解析来源/时间标注；CB-style 规范化 |
 | 导出 | ~~PDF / DOCX 正式导出模板~~ **基础版已交付（批 A）**；余：封面/水印/目录、session 对错标注 |
@@ -86,7 +89,7 @@
 | **M0 — Core MVP** | 1–6 | 导入(PDF/md)、答案录入、全屏练习、三栏结果、词汇表 xlsx、16 provider 目录（导出后由批 A 升级为 PDF/DOCX） | ✅ 已完成 |
 | **M1 — 设计系统基础** | 7 | 设计 token（色/字/间距/圆角/阴影）、组件原语、图标库（lucide）、AppShell；全站去 emoji/去卡片墙 | ⬜ 待开始 |
 | **M2 — 导入 2.0** | 8 | `import_jobs` 流水线（逐页状态/取消）、**DOCX 导入**、SAT-MD 模板预览、Library 列表重设计 | 🟡 **DOCX 导入已交付（批次 B）**；其余待做 |
-| **M3 — 复盘工作台** | 9 | IDE 式固定布局（可拖拽分隔条 + 持久化 + Inspector Tab + 底部 Vocabulary Sheet + 窄屏 drawer） | ⬜ |
+| **M3 — 复盘工作台** | 9 | IDE 式固定布局（可拖拽分隔条 + 持久化 + Inspector Tab + 底部 Vocabulary Sheet + 窄屏 drawer） | ✅ **已完成（批次 9，2026-10-07）** |
 | **M4 — 词汇表 v2** | 10 | 数据模型迁移（列 ID/宽度/行 ID/视图偏好）+ react-data-grid（编辑/粘贴/冻结/排序/筛选）+ xlsx v2 | ⬜ |
 | **M5 — 扫描件 OCR** | 11 | 跨平台 OCR adapter（macOS Vision + 可选 Tesseract）+ 逐页报告 + 仅失败页 AI 兜底 | 🟡 **OCR adapter + 逐页报告已交付（批次 C/D）**；仅失败页 AI 视觉待做 |
 | **M6 — CB 规范化** | 12 | 显式**逐题**改写 → 并排审阅 → 接受/拒绝（答案与出处不变） | ⬜ |
