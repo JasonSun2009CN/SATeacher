@@ -672,14 +672,18 @@ question ──[user 点击 Normalize to CB style]──► llm draft
 - **回滚**：纯前端，`git revert` 单提交即可。
 - **验收（已达成）**：`npm run build` 0 错；`tsc --noEmit` 0 错；后端 171 passed；E2E `run6.mjs`/`run10.mjs` 回归全过；无严重 a11y 问题。
 
-### 批 8 — 导入流水线骨架 + DOCX 导入 + 模板预览 + Library · ✅ 已完成（批次 B + D，2026-10-07）
+### 批 8 — 导入流水线骨架 + DOCX 导入 + 模板预览 + Library · ✅ 已完成（批次 B + D，2026-10-07；余量 2026-10-09）
 - **目标**：`import_jobs` 表 + API + 导入页重设计 + `.docx` + SAT-MD template。
 - **已交付（批次 B + D）**：`convert/docx.py`（段落/表格/图片/软换行；zip 安全；复用 PDF 管线）；`app/imports.py` 统一服务；`import_jobs` 表 + `migrate()`；`api/imports.py` 状态机端点；`ImportPipeline.tsx`/`SatMdTemplate.tsx`/`LibraryList.tsx`；`ImportPage.tsx` 拖放 + 流水线 + 列表。
-- **仍未含（另立批）**：真正的异步/分页进度（POST 同步返回）、`ai-fallback` 实体（暂 501 占位）。
+- **余量（2026-10-09 交付）**：
+  - **真正的异步/分页进度**：`POST /api/imports` 只做校验 + 建行，立即 202 返回 `status: "converting"`（快照在起线程**之前**读取，响应体确定）；转换在 `threading.Thread`（daemon）里跑，`convert_pdf` 增可选 `progress(done, total)` 回调（bluebook 路径首尾各报一次、通用逐页循环每页一次），写回 `pages_done/pages_total`；前端 `ImportPage` 每 300ms 轮询 `GET /api/imports/{id}` 直到 `review/failed/cancelled`（上限 2000 次），`ImportPipeline` 增进度条 + 逐页计数 + 转换中 Cancel 按钮。
+  - **取消可中断转换**：进度回调先读 job 行，发现 `cancelled` 就抛 `JobCancelled` 中止转换（`finally` 仍会关闭 PDF）；落库前再查一次状态，取消的 job 永不进 `review`、不残留 staged 文件。
+  - **`ai-fallback` 实体**：批 11 已实现 `POST /api/imports/{id}/ai-fallback`（原 501 占位已移除）；该端点仍同步返回（LLM 只在用户显式点击时触发，uvicorn 线程池执行，不阻塞事件循环）。
+  - **顺手修的 bug**：`create_import` 里 `convert_upload` 被重复调用两次（双倍耗时），已随重构消除；`staged` 上传副本在 `save_result` 复制到 `jobs/<id>/original.pdf` 后即删，不再滞留 `tmp/`。
 - **依赖**：`python-docx`（批 A 已加入）。
-- **风险**：DOCX 结构映射不完整（复杂文本框/嵌套表→降级为普通段落）；zip bomb/宏（**已实现防护**，见 §12）。
-- **回滚**：删除 `.docx`/`/api/imports` 分支即可；旧 `POST /api/documents` 仍可用。
-- **验收（已达成）**：流水线 13 项 + 迁移 3 项 + DOCX 用例全过；真实文件离线导入成功，0 token。
+- **风险**：DOCX 结构映射不完整（复杂文本框/嵌套表→降级为普通段落）；zip bomb/宏（**已实现防护**，见 §12）；转换线程随进程退出而中断（daemon），结果未落库的 job 重启后停在 `converting`，用户可取消/删除后重传。
+- **回滚**：删除 `.docx`/`/api/imports` 分支即可；旧 `POST /api/documents` 仍为同步路径，不受影响。
+- **验收（已达成）**：`test_imports_api.py` 17 项（含 3 项新增：202 异步语义、转换中取消不落库、PDF 逐页进度单调）；pytest 174；`tsc --noEmit` 0 错；`npm test` 42 过 6 跳；E2E `run.mjs`（导入→练习→判分→重考全流程）、`run6.mjs`、`run10.mjs` 全过。
 
 ### 批 9 — Review Workspace 外壳（复用现有端点） · ✅ 完成（2026-10-07）
 - **目标**：三区 + 分隔条 + 布局持久化 + Inspector Tab + 底部词汇表 sheet。

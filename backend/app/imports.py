@@ -14,13 +14,15 @@ from __future__ import annotations
 
 import json
 import shutil
+import threading
 import uuid
 from pathlib import Path
 
 from app import repos
 from app.convert.docx import convert_docx
-from app.convert.pdf import ConvertError, convert_pdf
+from app.convert.pdf import ConvertError, ProgressFn, convert_pdf
 from app.db import UPLOAD_TMP, jobs_dir
+from app.repos import imports as jobs_repo
 from app.satmd.parser import SatMdError, parse
 
 ANSWER_STATUSES = {"inline", "external", "none"}
@@ -122,15 +124,25 @@ def pages_to_json(pages: list) -> list[dict]:
     return out
 
 
-def convert_upload(filename: str, data: bytes) -> ImportResult:
-    """Run the deterministic conversion for a validated upload."""
+def convert_upload(
+    filename: str,
+    data: bytes,
+    *,
+    progress: ProgressFn | None = None,
+) -> ImportResult:
+    """Run the deterministic conversion for a validated upload.
+
+    ``progress`` (optional) is forwarded to the PDF converter so callers can
+    observe per-page progress; it is not called for DOCX/SAT-MD (they finish
+    in one step).
+    """
     kind = detect_kind(filename)
 
     if kind in ("pdf", "docx"):
         staged = _stage(filename, data)
         try:
             if kind == "pdf":
-                converted = convert_pdf(staged, title=Path(filename).stem)
+                converted = convert_pdf(staged, title=Path(filename).stem, progress=progress)
             else:
                 converted = convert_docx(staged, title=Path(filename).stem)
         except ConvertError as exc:
@@ -294,6 +306,90 @@ def load_result(job_id: str) -> ImportResult | None:
 
 def clear_result(job_id: str) -> None:
     shutil.rmtree(jobs_dir(job_id), ignore_errors=True)
+
+
+# --------------------------------------------------------------------------
+# Asynchronous job runner (batch 8 / M2): the conversion runs in a background
+# thread so ``POST /api/imports`` returns immediately (202) and the client
+# polls the job row for per-page progress instead of holding one long request.
+# --------------------------------------------------------------------------
+
+
+class JobCancelled(Exception):
+    """Raised inside a running job when the user cancelled it."""
+
+
+def _progress_reporter(job_id: str) -> ProgressFn:
+    """Per-page progress sink: persists counts and honours cancellation."""
+
+    def report(done: int, total: int) -> None:
+        job = jobs_repo.get(job_id)
+        if job is None or job["status"] == "cancelled":
+            raise JobCancelled(job_id)
+        if job["status"] == "converting":
+            jobs_repo.update(job_id, pages_done=done, pages_total=total)
+
+    return report
+
+
+def start_job(job_id: str, filename: str, data: bytes) -> threading.Thread:
+    """Kick off the conversion in a daemon thread (does not block the caller).
+
+    Returns the thread so tests can join it deterministically.
+    """
+    thread = threading.Thread(
+        target=_run_job, args=(job_id, filename, data), daemon=True
+    )
+    thread.start()
+    return thread
+
+
+def _run_job(job_id: str, filename: str, data: bytes) -> None:
+    """Convert -> stage -> review (or failed / cancelled)."""
+    staged: Path | None = None
+    try:
+        staged = _stage(filename, data)
+        result = convert_upload(filename, data, progress=_progress_reporter(job_id))
+    except JobCancelled:
+        if staged is not None:
+            staged.unlink(missing_ok=True)
+        return                                          # the row says "cancelled"
+    except ImportProblem as exc:
+        if staged is not None:
+            staged.unlink(missing_ok=True)
+        jobs_repo.update(job_id, status="failed", stage="convert", error=str(exc))
+        return
+    except Exception as exc:                           # pragma: no cover
+        if staged is not None:
+            staged.unlink(missing_ok=True)
+        jobs_repo.update(
+            job_id, status="failed", stage="convert", error=f"unexpected import error: {exc}"
+        )
+        return
+
+    job = jobs_repo.get(job_id)
+    if job is None or job["status"] == "cancelled":
+        if staged is not None:
+            staged.unlink(missing_ok=True)
+        return
+
+    save_result(job_id, result, original_pdf=staged)
+    if staged is not None:
+        staged.unlink(missing_ok=True)                 # save_result copied it if needed
+    pages = pages_to_json(result.pages)
+    jobs_repo.update(
+        job_id,
+        status="review",
+        stage="validate",
+        kind=result.kind,
+        import_source=result.import_source,
+        pages_total=len(pages),
+        pages_done=len(pages),
+        question_count=result.question_count,
+        used_ai=result.used_ai,
+        pages_json=json.dumps(pages),
+        warnings_json=json.dumps(result.warnings),
+    )
 
 
 # --------------------------------------------------------------------------

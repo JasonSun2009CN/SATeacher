@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import Inspector from "./Inspector";
 import { vi } from "vitest";
+import type { ResultItem } from "../../api/client";
 
 // Use vi.hoisted for mocks that need to be available in vi.mock factory
 const mockApi = vi.hoisted(() => ({
@@ -25,9 +26,6 @@ const mockApi = vi.hoisted(() => ({
   deleteImport: vi.fn(),
   aiFallbackImport: vi.fn(),
   health: vi.fn(),
-  exportUrl: vi.fn(),
-  wordsExportUrl: vi.fn(),
-  askAI: vi.fn(),
   getSettings: vi.fn(),
   listProviders: vi.fn(),
   saveSettings: vi.fn(),
@@ -51,16 +49,20 @@ vi.mock("../../api/client", () => ({
   ApiError: MockApiError,
 }));
 
-const mockItem = {
+const mockItem: ResultItem = {
   question_id: 1,
   no: 1,
+  source_no: 1,
   sec: "rw",
   material: "Test material",
   stem: "Test question?",
-  options: { A: "Option A", B: "Option B", C: "Option C", D: "Option D" },
+  options: ["Option A", "Option B", "Option C", "Option D"],
+  images: [],
   answer: "A",
   explain: "Test explanation",
   source: "p.1",
+  chosen: null,
+  is_correct: null,
 };
 
 describe("Inspector", () => {
@@ -164,14 +166,14 @@ describe("Inspector", () => {
         material: "Test material",
         stem: "Test question?",
         options: { A: "Option A", B: "Option B", C: "Option C", D: "Option D" },
-        answer: "A",
+        answer: "A" as const,
         source_ref: "p.1",
       },
       normalized: {
         material: "Test material",
         stem: "Normalized question?",
         options: { A: "Option A", B: "Option B", C: "Option C", D: "Option D" },
-        answer: "A",
+        answer: "A" as const,
         source_ref: "p.1",
       },
       changed: ["stem"],
@@ -180,7 +182,7 @@ describe("Inspector", () => {
     };
 
     const { api: mockedApi } = await import("../../api/client");
-    mockedApi.normalizeQuestion.mockResolvedValue(mockNormalizeResponse);
+    vi.mocked(mockedApi.normalizeQuestion).mockResolvedValue(mockNormalizeResponse);
 
     render(
       <Inspector

@@ -26,6 +26,8 @@ export default function ImportPage() {
   const [ocr, setOcr] = useState<string[] | null>(null);
   const [dragging, setDragging] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  /** Set when the user cancels while the conversion is still running. */
+  const cancelledRef = useRef(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -63,15 +65,34 @@ export default function ImportPage() {
     setError(null);
     setJob(null);
     setImported(null);
+    cancelledRef.current = false;
     try {
-      let created = await api.createImport(file);
-      // Clean conversions skip the review screen (0 token, no ambiguity).
-      if (created.status === "review" && !created.needs_review) {
-        created = await api.commitImport(created.id);
+      // POST /api/imports returns 202 immediately with status "converting";
+      // the conversion runs in the background and we poll for per-page
+      // progress until the job settles (review / failed / cancelled).
+      let current = await api.createImport(file);
+      setJob(current);
+      let polls = 0;
+      while (
+        !cancelledRef.current &&
+        (current.status === "converting" || current.status === "detecting")
+      ) {
+        if (++polls > 2000) {
+          // 10 minutes — the job keeps running server-side; tell the user.
+          throw new Error("Conversion is taking too long — reload the page to check its status.");
+        }
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        current = await api.getImport(current.id);
+        if (!cancelledRef.current) setJob(current);
       }
-      setJob(created);
-      if (created.status === "done" && created.document_id) {
-        setImported(await api.getDocument(created.document_id));
+      if (cancelledRef.current) return;
+      // Clean conversions skip the review screen (0 token, no ambiguity).
+      if (current.status === "review" && !current.needs_review) {
+        current = await api.commitImport(current.id);
+      }
+      setJob(current);
+      if (current.status === "done" && current.document_id) {
+        setImported(await api.getDocument(current.document_id));
         await refresh();
       }
     } catch (err) {
@@ -113,6 +134,7 @@ export default function ImportPage() {
 
   async function onCancelJob() {
     if (!job) return;
+    cancelledRef.current = true;              // stop the progress poll first
     try {
       await api.cancelImport(job.id);
     } catch (err) {

@@ -111,6 +111,54 @@ export default function ImportPipeline({
         </p>
       )}
 
+      {job.status === "converting" && (
+        <div className="mt-5">
+          <div className="flex items-center justify-between text-sm text-slate-600">
+            <span className="flex items-center gap-2">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-blue-600" />
+              Converting…
+            </span>
+            <span className="tabular-nums">
+              {job.pages_total > 0
+                ? `${job.pages_done}/${job.pages_total} pages`
+                : "counting pages"}
+            </span>
+          </div>
+          <div
+            className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-100"
+            role="progressbar"
+            aria-label="Conversion progress"
+            aria-valuemin={0}
+            aria-valuemax={job.pages_total || undefined}
+            aria-valuenow={job.pages_total ? job.pages_done : undefined}
+          >
+            <div
+              className={
+                "h-full rounded-full bg-blue-600 transition-all duration-300 " +
+                (job.pages_total > 0 ? "" : "w-1/3 animate-pulse")
+              }
+              style={
+                job.pages_total > 0
+                  ? {
+                      width: `${Math.max(
+                        3,
+                        Math.round((100 * job.pages_done) / job.pages_total),
+                      )}%`,
+                    }
+                  : undefined
+              }
+            />
+          </div>
+          <button
+            onClick={onCancel}
+            disabled={busy}
+            className="mt-3 rounded-lg border px-4 py-2 font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+
       {job.pages.length > 0 && (
         <div className="mt-5">
           <h3 className="text-sm font-semibold text-slate-700">

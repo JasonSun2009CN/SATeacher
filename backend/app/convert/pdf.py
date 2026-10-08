@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import datetime as dt
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -712,17 +713,30 @@ def _assemble(
     )
 
 
-def convert_pdf(path: Path, title: str | None = None) -> ConvertedDoc:
+ProgressFn = Callable[[int, int], None]
+"""``(pages_done, pages_total)`` — called as pages are converted."""
+
+
+def convert_pdf(
+    path: Path,
+    title: str | None = None,
+    progress: ProgressFn | None = None,
+) -> ConvertedDoc:
     """Convert a PDF to SAT-MD.
 
     Deterministic layout profiles run first (0 token). When they fail and an
     LLM API is configured, control passes to the labeling fallback
     (PLAN.md §3: the LLM rescues unreadable layouts, it is never the main path).
+
+    ``progress`` (optional) is invoked with ``(pages_done, pages_total)``
+    inside the deterministic per-page loop so callers can show live progress
+    for long/OCR-heavy conversions. Raising inside the callback aborts the
+    conversion (used for job cancellation).
     """
     title = title or path.stem
     warnings: list[str] = []
     try:
-        return _convert_deterministic(path, title, warnings)
+        return _convert_deterministic(path, title, warnings, progress)
     except ConvertError as err:
         if not err.fallback:
             raise
@@ -743,7 +757,13 @@ def convert_pdf(path: Path, title: str | None = None) -> ConvertedDoc:
             ) from ai_err
 
 
-def _convert_deterministic(path: Path, title: str, warnings: list[str]) -> ConvertedDoc:
+def _convert_deterministic(
+    path: Path,
+    title: str,
+    warnings: list[str],
+    progress: ProgressFn | None = None,
+) -> ConvertedDoc:
+    notify: ProgressFn = progress or (lambda done, total: None)
     try:
         doc = pymupdf.open(path)
     except Exception as exc:
@@ -754,8 +774,11 @@ def _convert_deterministic(path: Path, title: str, warnings: list[str]) -> Conve
         if doc.page_count == 0:
             raise ConvertError("the PDF has no pages", fallback=False)
 
+        notify(0, doc.page_count)
+
         if _bluebook.detect(doc):
             result = _bluebook.convert(doc, warnings)
+            notify(doc.page_count, doc.page_count)
             if not result.questions:
                 raise ConvertError(
                     "questions were detected but none could be converted cleanly: "
@@ -794,6 +817,7 @@ def _convert_deterministic(path: Path, title: str, warnings: list[str]) -> Conve
             else:
                 reports.append(PageReport(index + 1, "text"))
             pages.append(lines)
+            notify(index + 1, doc.page_count)
 
         if scanned_pages and scanned_pages == doc.page_count and not ocr_pages and _ocr.get_engine() is None:
             raise ConvertError(

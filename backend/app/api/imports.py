@@ -1,14 +1,18 @@
 """Staged import pipeline endpoints (detect -> convert -> review -> commit).
 
-The conversion itself is deterministic and fast (0 token), so the job is run
-synchronously on ``POST /api/imports`` and the response already carries the
-per-page report. Committing is a separate, explicit request so the UI can show
-a review screen when a conversion looked ambiguous.
+The conversion is deterministic and 0-token, but it can still take a while
+(scanned PDFs run through OCR), so ``POST /api/imports`` only *starts* the
+job: it validates the upload, records the row and returns 202 with
+``status: "converting"`` immediately. The conversion itself runs in a
+background thread (see :func:`app.imports.start_job`) which reports per-page
+progress into the row; clients poll ``GET /api/imports/{id}`` until the job
+settles into ``review``/``failed``/``cancelled``. Committing is a separate,
+explicit request so the UI can show a review screen when a conversion looked
+ambiguous.
 """
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
@@ -58,41 +62,18 @@ async def create_import(file: UploadFile = File(...)) -> dict:
     data = await file.read()
     filename = Path(file.filename or "upload").name
     try:
-        imports_service.validate_upload(filename, data)
+        kind = imports_service.validate_upload(filename, data)
     except imports_service.ImportProblem as exc:
         _fail(str(exc), exc.status)
         raise                                          # pragma: no cover
 
     job_id = jobs_repo.create(filename)
-    try:
-        result = imports_service.convert_upload(filename, data)
-    except imports_service.ImportProblem as exc:
-        jobs_repo.update(job_id, status="failed", stage="convert", error=str(exc))
-        return _payload(jobs_repo.get(job_id))
-
-    staged = imports_service._stage(filename, data)
-    try:
-        result = imports_service.convert_upload(filename, data)
-    except imports_service.ImportProblem as exc:
-        jobs_repo.update(job_id, status="failed", stage="convert", error=str(exc))
-        return _payload(jobs_repo.get(job_id))
-
-    imports_service.save_result(job_id, result, original_pdf=staged)
-    pages = imports_service.pages_to_json(result.pages)
-    jobs_repo.update(
-        job_id,
-        status="review",
-        stage="validate",
-        kind=result.kind,
-        import_source=result.import_source,
-        pages_total=len(pages),
-        pages_done=len(pages),
-        question_count=result.question_count,
-        used_ai=result.used_ai,
-        pages_json=json.dumps(pages),
-        warnings_json=json.dumps(result.warnings),
-    )
-    return _payload(jobs_repo.get(job_id))
+    # Snapshot the row before the thread starts so the 202 body always reads
+    # status="converting" — deterministic for clients and tests alike.
+    jobs_repo.update(job_id, status="converting", stage="convert", kind=kind)
+    payload = _payload(jobs_repo.get(job_id))
+    imports_service.start_job(job_id, filename, data)
+    return payload
 
 
 @router.get("/{job_id}")
