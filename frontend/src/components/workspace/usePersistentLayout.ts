@@ -73,7 +73,7 @@ export interface WorkspaceLayout {
   inspectorWidth: number;
   sheetOpen: boolean;
   sheetHeight: number;
-  inspectorTab: "explain" | "ai" | "export";
+  inspectorTab: "explain" | "ai" | "export" | "normalize";
 }
 
 export const DEFAULT_LAYOUT: WorkspaceLayout = {

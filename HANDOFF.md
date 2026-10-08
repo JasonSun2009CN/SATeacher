@@ -30,6 +30,7 @@ f2ae30e Make vite /api proxy target configurable via SATEACHER_API env var
 | 已提交（批 9） | `frontend/src/components/workspace/**`（`Workspace`/`QuestionNav`/`Inspector`/`VocabularySheet`/`Splitter`/`usePersistentLayout`/`useMediaQuery`/`icons`）、`frontend/src/pages/ResultPage.tsx` | **Review Workspace 外壳**；旧 `ReviewSidebar.tsx` 保留作回滚 |
 | 已提交（批 10） | `backend/app/repos/words.py`、`backend/app/db.py`、`backend/app/api/documents.py`、`backend/app/export/model.py`、`backend/tests/{test_words_v2,test_review_api,test_migrations}.py`、`frontend/src/components/workspace/{VocabGrid,VocabularySheet}.tsx`、`frontend/src/components/ReviewSidebar.tsx`、`frontend/src/api/client.ts`、`docs/*`、`ROADMAP.md`、`HANDOFF.md` | **Vocabulary Sheet v2**（稳定 ID/列宽/排序/筛选/粘贴/键盘；**无新依赖**） |
 | 已提交（批 11） | `backend/app/imports.py`、`backend/app/api/imports.py`、`backend/app/convert/llm_fallback.py`、`backend/tests/test_imports_api.py`、`frontend/src/components/ImportPipeline.tsx`、`frontend/src/pages/ImportPage.tsx`、`frontend/src/api/client.ts`、`docs/*`、`ROADMAP.md`、`HANDOFF.md` | **扫描 PDF OCR + 选择性 AI 视觉**（仅失败页跑 LLM，**无新依赖**） |
+| 已提交（批 12） | `backend/app/llm/normalize.py`、`backend/app/api/documents.py`、`backend/tests/test_normalize.py`、`frontend/src/components/workspace/{NormalizeReview,Inspector}.tsx`、`frontend/src/components/workspace/usePersistentLayout.ts`、`frontend/src/api/client.ts`、`docs/*`、`ROADMAP.md`、`HANDOFF.md` | **CB-style normalization**（显式改写→并排审阅→接受/拒绝，**无新依赖**） |
 
 > `LICENSE`、`.idea/` 为维护者本机改动/IDE 文件，提交时按需排除。
 
@@ -54,6 +55,7 @@ f2ae30e Make vite /api proxy target configurable via SATEACHER_API env var
 
 | **批 10（Vocabulary Sheet v2，2026-10-08）** | `repos/words.py` v2（稳定列/行 ID、列宽、排序/筛选 view；v1 `headers+rows` 读取自愈升级）；`db.py` 迁移 `word_grids.columns_json/view_json/version`；`api/documents.py` words 端点 v2（v1 兼容）+ xlsx 列序/列宽/冻结表头；`export/model.py` 适配；新增自研 `frontend/src/components/workspace/VocabGrid.tsx`（列宽拖拽/排序/按列筛选/多格粘贴/键盘导航/冻结表头，**无新依赖**），`VocabularySheet`/`ReviewSidebar` 复用 | pytest 171（+7）；E2E `run10.mjs` 全过；`run6.mjs` 回归过 |
 | **批 11（扫描 PDF OCR + 选择性 AI 视觉，2026-10-08）** | `imports.py`：保留原始 PDF 供 AI fallback、`run_ai_fallback()` 仅对 `ocr_unavailable/failed/low_confidence/empty` 页跑 LLM、合并题目；`api/imports.py`：`POST /ai-fallback` 端点；`llm_fallback.py`：支持 `page_numbers` 过滤；前端 `ImportPipeline` 增 “Run AI fallback” 按钮、`client.ts` 增 `aiFallbackImport` | pytest 171；E2E 回归过 |
+| **批 12（CB-style normalization，2026-10-08）** | `llm/normalize.py`：prompt + 校验（答案不变、material 保留、options A-D）；`api/documents.py`：`POST /normalize` + `POST /normalize/accept`（二次校验后写库）；`NormalizeReview.tsx`（左右对比、可编辑、高亮差异）；`Inspector.tsx` 新增 Normalize Tab；`client.ts` 增 `normalizeQuestion/acceptNormalization`；`usePersistentLayout` `inspectorTab` 增 "normalize" | pytest 171；E2E 回归过 |
 
 基线：**171 pytest 全过**；`npm run build` 0 错误；E2E `run6.mjs`（批 9 Workspace）与 `run10.mjs`（批 10 词汇表 v2）全过。`run/run2/run3/run4` 为批 D 导入页改版前的脚本（选择器已过时），需同步后复跑。
 

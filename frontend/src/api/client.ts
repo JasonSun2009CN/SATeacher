@@ -138,6 +138,15 @@ export interface WordGrid {
   view: WordView;
 }
 
+/** Question text shape for CB-style normalization. */
+export interface QuestionText {
+  material: string | null;
+  stem: string;
+  options: Record<"A" | "B" | "C" | "D", string>;
+  answer: "A" | "B" | "C" | "D";
+  source_ref: string;
+}
+
 /** One module of a built-in bank, as listed on the import page. */
 export interface BuiltinUnit {
   id: string;
@@ -324,6 +333,23 @@ export const api = {
       method: "POST",
       ...json({ document_id: docId, question_id: questionId }),
     }),
+
+  /** CB-style normalization: LLM rewrite with strict validation. */
+  normalizeQuestion: (docId: number, questionId: number) =>
+    request<{
+      original: QuestionText;
+      normalized: QuestionText;
+      changed: string[];
+      answer_preserved: boolean;
+      requires_review: boolean;
+    }>(`/api/documents/${docId}/questions/${questionId}/normalize`, { method: "POST" }),
+
+  /** Accept a previously generated normalization (re-validates invariants). */
+  acceptNormalization: (docId: number, questionId: number, normalized: QuestionText) =>
+    request<{ updated: number; satmd: string }>(
+      `/api/documents/${docId}/questions/${questionId}/normalize/accept`,
+      { method: "POST", ...json(normalized) },
+    ),
 
   history: (docId: number) =>
     request<

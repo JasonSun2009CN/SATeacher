@@ -12,6 +12,7 @@ from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 
 from app import imports as imports_service
+from app import llm
 from app import repos
 from app.db import assets_dir
 from app.export import build_export, render_docx_bytes, render_pdf_bytes
@@ -48,6 +49,15 @@ class WordsPayload(BaseModel):
     rows: Any = None
     view: Any = None
     headers: Any = None
+
+
+class NormalizePayload(BaseModel):
+    """Normalized question payload returned by /normalize and accepted by /normalize/accept."""
+    material: str | None = None
+    stem: str
+    options: dict[str, str]
+    answer: str
+    source_ref: str
 
 
 def _fail(message: str, status: int = 422) -> None:
@@ -141,6 +151,83 @@ def put_explain(doc_id: int, question_id: int, payload: ExplainPayload) -> dict:
         _fail("question not found", 404)
         raise                                          # pragma: no cover
     return {"question_id": question_id, "explain": content}
+
+
+# --------------------------------------------------------------------------
+# CB-style normalization (batch 12)
+# --------------------------------------------------------------------------
+
+
+@router.post("/{doc_id}/questions/{question_id}/normalize")
+def normalize_question(doc_id: int, question_id: int) -> dict:
+    """Generate a CB-style normalization for a question (LLM call; explicit user action)."""
+    if not llm.configured():
+        _fail("no LLM configured — set API key and model in Settings", 409)
+        raise                                          # pragma: no cover
+
+    doc = repos.documents.get_document(doc_id)
+    if doc is None:
+        _fail("document not found", 404)
+        raise                                          # pragma: no cover
+
+    questions = repos.documents.list_questions(doc_id)
+    q = next((qq for qq in questions if qq["id"] == question_id), None)
+    if q is None:
+        _fail("question not found", 404)
+        raise                                          # pragma: no cover
+
+    # Need material, stem, options, answer, source_ref
+    # list_questions returns the right shape.
+    material = q.get("material")
+    stem = q.get("stem", "")
+    options = q.get("options", {})
+    answer = q.get("answer", "")
+    source_ref = q.get("source", "")
+
+    if not stem or not options or answer not in {"A", "B", "C", "D"}:
+        _fail("question missing required fields for normalization", 400)
+        raise                                          # pragma: no cover
+
+    try:
+        from app.llm import normalize as normalize_mod
+
+        result = normalize_mod.normalize_question(
+            material=material,
+            stem=stem,
+            options=options,
+            answer=answer,
+            source_ref=source_ref,
+        )
+    except normalize_mod.NormalizeError as exc:
+        _fail(str(exc), 422)
+        raise                                          # pragma: no cover
+    except llm.LLMError as exc:
+        _fail(f"LLM request failed: {exc}", 502)
+        raise                                          # pragma: no cover
+
+    return {
+        "original": result.original,
+        "normalized": result.normalized,
+        "changed": result.changed,
+        "answer_preserved": result.answer_preserved,
+        "requires_review": result.requires_review,
+    }
+
+
+@router.post("/{doc_id}/questions/{question_id}/normalize/accept")
+def accept_normalization(doc_id: int, question_id: int, payload: NormalizePayload) -> dict:
+    """Persist an accepted normalization (validates invariants again)."""
+    if repos.documents.get_document(doc_id) is None:
+        _fail("document not found", 404)
+        raise                                          # pragma: no cover
+
+    try:
+        from app.llm import normalize as normalize_mod
+
+        return normalize_mod.accept_normalization(doc_id, question_id, payload.model_dump())
+    except normalize_mod.NormalizeError as exc:
+        _fail(str(exc), 422)
+        raise                                          # pragma: no cover
 
 
 @router.get("/{doc_id}/words")

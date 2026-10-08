@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { api, ApiError, type ResultItem } from "../../api/client";
+import NormalizeReview from "./NormalizeReview";
 
-export type InspectorTab = "explain" | "ai" | "export";
+export type InspectorTab = "explain" | "ai" | "export" | "normalize";
 
 interface Props {
   docId: number;
@@ -19,6 +20,7 @@ function errText(err: unknown): string {
 const TABS: { key: InspectorTab; label: string }[] = [
   { key: "explain", label: "Explanation" },
   { key: "ai", label: "AI Tutor" },
+  { key: "normalize", label: "Normalize" },
   { key: "export", label: "Export" },
 ];
 
@@ -219,6 +221,27 @@ export default function Inspector({ docId, item, tab, onTab, onClose, onExplainS
               <p className="mt-3 rounded bg-amber-50 px-2 py-1.5 text-xs text-amber-800">
                 Unsaved explanation drafts are never included — save first.
               </p>
+            )}
+          </div>
+        )}
+
+        {tab === "normalize" && (
+          <div>
+            {!item ? (
+              <p className="text-sm text-slate-500">Select a question in the list.</p>
+            ) : item.answer === null ? (
+              <p className="rounded bg-amber-50 px-2 py-1.5 text-xs text-amber-800">
+                No answer key for this question — enter the answers first.
+              </p>
+            ) : (
+              <NormalizeReview
+                docId={docId}
+                questionId={item.question_id}
+                onClose={() => onTab("explain")}
+                onAccepted={() => {
+                  /* refresh handled by parent via onExplainSaved? No, just close. */
+                }}
+              />
             )}
           </div>
         )}

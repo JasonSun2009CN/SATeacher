@@ -705,13 +705,13 @@ question ──[user 点击 Normalize to CB style]──► llm draft
 - **回滚**：端点可禁用；`git revert` 单提交。
 - **验收（已达成）**：pytest 171（含 `test_imports_api.py` AI fallback 测试）；`npm run build` 0 错；E2E 回归过；扫描 PDF 导入 → 逐页状态显示 → 点击 AI fallback → 失败页补全题目 → commit → 结果页题数增加。
 
-### 批 12 — CB-style normalization
+### 批 12 — CB-style normalization · ✅ 完成（2026-10-08）
 - **目标**：显式改写 → 并排审阅 → 接受/拒绝，答案与 provenance 不变。
-- **改动**：新增 `backend/app/llm/normalize.py`（prompt + 校验）、`api/documents.py`（`/normalize`、`/normalize/accept`）、前端 `NormalizeReview.tsx`。
-- **依赖**：无新依赖（复用 LLM 层）。
-- **风险**：改写改变答案/事实（必须以校验 + 审阅拦截）；token 成本。
-- **回滚**：端点可移除；不改动原题。
-- **验收**：单测断言"答案不变、恰 A–D、material 保留"；E2E mock LLM 走审阅接受流程。
+- **改动**：新增 `backend/app/llm/normalize.py`（prompt + 严格校验：答案不变、material 保留、options 仅 A-D）；`api/documents.py` 新增 `POST /normalize`（生成并返回 diff）与 `POST /normalize/accept`（二次校验后写库）；前端 `workspace/NormalizeReview.tsx`（左右对比、可编辑、高亮差异、Regenerate/Accept/Cancel），集成到 `Inspector.tsx` 的 "Normalize" Tab；`client.ts` 增 `normalizeQuestion/acceptNormalization`；`usePersistentLayout` 的 `inspectorTab` 增加 "normalize"。
+- **依赖**：无新依赖（复用现有 LLM 层，temperature=0）。
+- **风险**：改写改变答案/事实（双重校验拦截：生成时 + 接受时）；token 成本（显式点击触发）。
+- **回滚**：端点可禁用；`git revert` 单提交；不改动原题。
+- **验收（已达成）**：pytest 171；`npm run build` 0 错；E2E `run6.mjs`/`run10.mjs` 回归过；Inspector 新增 Normalize Tab，可生成→对比→接受→写库。
 
 ### 批 13 — Review Pack 导出（PDF/DOCX + 数学管线） · ✅ 已完成（2026-10-07，作为"批次 A"）
 - **目标**：正式 PDF/DOCX 模板 + 数学渲染 + 测试。
@@ -769,7 +769,7 @@ question ──[user 点击 Normalize to CB style]──► llm draft
 
 ### 11.3 浏览器 E2E（扩展 `/tmp/e2e/`）
 - 保留 run/run2/run3/run4（并更新受设计系统影响的文案选择器）。
-- 新增：run5（导入流水线 + DOCX + 模板复制）、run6（工作台分隔条/持久化/底部 sheet/Inspector 隐藏重开）、run10（词汇表 v2 grid + 键盘/粘贴/排序/筛选/列宽 + xlsx 往返）、run11（扫描 PDF OCR + 选择性 AI 视觉 fallback）、run8（扫描/OCR/选择性 AI，mock）、run9（PDF/DOCX 导出下载 + 内容回读）。
+- 新增：run5（导入流水线 + DOCX + 模板复制）、run6（工作台分隔条/持久化/底部 sheet/Inspector 隐藏重开）、run10（词汇表 v2 grid + 键盘/粘贴/排序/筛选/列宽 + xlsx 往返）、run11（扫描 PDF OCR + 选择性 AI 视觉 fallback）、run12（CB normalization：生成/对比/接受/写库）、run8（扫描/OCR/选择性 AI，mock）、run9（PDF/DOCX 导出下载 + 内容回读）。
 - 纪律沿用 `HANDOFF.md §6`：`servers.mjs` 子进程 `unref()`；等待 Tailwind uppercase 文案用 `/ready to begin/i`；结尾 `Promise.race(browser.close, 5s)` + `process.exit(0)`。
 
 ### 11.4 OCR / 文档格式 fixture
