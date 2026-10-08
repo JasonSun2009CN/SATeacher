@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "katex": "^0.16.22",
+    "lucide-react": "^0.487.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-markdown": "^10.1.0",

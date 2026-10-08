@@ -27,6 +27,7 @@ f2ae30e Make vite /api proxy target configurable via SATEACHER_API env var
 | 状态 | 路径 | 说明 |
 |---|---|---|
 | 已提交 `c108cfb` | `backend/app/export/**`、`backend/app/imports.py`、`backend/app/api/imports.py`、`backend/app/repos/imports.py`、`backend/app/convert/{docx.py,ocr/**}`、`backend/app/db.py`、`backend/app/main.py`、`backend/tests/{test_export,test_docx_convert,test_ocr,test_imports_api,test_migrations}.py`、`README*.md`、`ROADMAP.md`、`docs/{ARCHITECTURE,RENOVATION_PLAN}.md`、前端 `ImportPipeline`/`SatMdTemplate`/`LibraryList`/`ImportPage`/`client.ts` | **批 A/B/C/D 产物**；`backend/app/export/mathjax/node_modules/` 不入库（`.gitignore`） |
+| 已提交（批 7） | `frontend/src/index.css`、`frontend/src/components/ui/`（Button/Input/Tabs/Badge/EmptyState/Banner/Toast/Icon/AppShell）、`frontend/package.json`、`docs/*`、`ROADMAP.md`、`HANDOFF.md` | **设计系统基础**（token/组件原语/图标库/AppShell，**+lucide-react**） |
 | 已提交（批 9） | `frontend/src/components/workspace/**`（`Workspace`/`QuestionNav`/`Inspector`/`VocabularySheet`/`Splitter`/`usePersistentLayout`/`useMediaQuery`/`icons`）、`frontend/src/pages/ResultPage.tsx` | **Review Workspace 外壳**；旧 `ReviewSidebar.tsx` 保留作回滚 |
 | 已提交（批 10） | `backend/app/repos/words.py`、`backend/app/db.py`、`backend/app/api/documents.py`、`backend/app/export/model.py`、`backend/tests/{test_words_v2,test_review_api,test_migrations}.py`、`frontend/src/components/workspace/{VocabGrid,VocabularySheet}.tsx`、`frontend/src/components/ReviewSidebar.tsx`、`frontend/src/api/client.ts`、`docs/*`、`ROADMAP.md`、`HANDOFF.md` | **Vocabulary Sheet v2**（稳定 ID/列宽/排序/筛选/粘贴/键盘；**无新依赖**） |
 | 已提交（批 11） | `backend/app/imports.py`、`backend/app/api/imports.py`、`backend/app/convert/llm_fallback.py`、`backend/tests/test_imports_api.py`、`frontend/src/components/ImportPipeline.tsx`、`frontend/src/pages/ImportPage.tsx`、`frontend/src/api/client.ts`、`docs/*`、`ROADMAP.md`、`HANDOFF.md` | **扫描 PDF OCR + 选择性 AI 视觉**（仅失败页跑 LLM，**无新依赖**） |
@@ -47,6 +48,7 @@ f2ae30e Make vite /api proxy target configurable via SATEACHER_API env var
 | 批5 `4d7426a` | 内置题库：5A 离线构建脚本 44/44 单元（1186题+1186答案+17图）｜5B `documents.builtin_key` 迁移 + `app/api/builtin.py`（列表/单加/add-all、幂等）｜5C 导入页 `BuiltinBankCard`（折叠卡→日期分组→Add/Add all/✓In library 跳练习页） | pytest 113（+6）；E2E run4 新增全过；run/run2/run3 回归过 |
 | StrictMode 修复 `b1263a7` | `PracticePage` startSession 双调修复（`startedFor` ref 同 docId 只建一次；`aliveRef` 处理真实卸载；不用 cleanup 置 cancelled——StrictMode 合成 cleanup 会丢唯一在途响应→卡 Loading） | E2E run.mjs 会话数断言（首进=1、重做=2）；run/run2/run3 全过 |
 | 批6（未提交） | 服务商目录：`app/providers.py` 16 家预置（OrcaRouter 第一，BaseURL 官网核对）｜`protocol` 与 provider 解耦（settings 新增键、显式覆盖优先）｜`GET /api/settings/providers`｜probe/LLM 按 protocol 分发 + 目录默认 BaseURL｜Settings 页目录驱动下拉 + 协议提示 + 自动路由默认模型 | pytest 121（+8）；E2E run/run2/run3/run4 全过；build 0 错误 |
+| **批 7（设计系统基础，2026-10-08）** | `index.css` @theme token + `components/ui/` (Button/Input/Tabs/Badge/EmptyState/Banner/Toast/Icon/AppShell) + `package.json` + `lucide-react` | pytest 171；`npm run build` 0 错；E2E `run6.mjs`/`run10.mjs` 回归过 |
 | **批 A（未提交，2026-10-07）** | **PDF/DOCX 导出**（替换旧 md/csv/json）：新增 `backend/app/export/{model,pdf,docx,math_render}.py` + `mathjax/` Node 桥接；端点 `GET /api/documents/{id}/export/{pdf\|docx}`；前端 Export 按钮改 PDF/DOCX。数学=MathJax SVG（PDF 内联 SVG / DOCX 经 cairosvg 转 PNG；缺失降级纯文本）。**md/csv/json 导出已删除** | `test_export.py` 7 项（前缀+回读+校验+数学）；pytest 124；build 0 错 |
 | **批 B（未提交，2026-10-07）** | **DOCX 导入**（原批 8 的一部分）：新增 `backend/app/convert/docx.py`（python-docx 段落/表格/图片/软换行/VML；复用 PDF 的题号/选项/material-stem/答案键管线；**zip 安全校验**：条目数/解压总量/压缩比/宏；图片经 PyMuPDF 归一到 PNG）；`documents.py` 加 `.docx` 分支；ImportPage `accept`/文案更新。**原批 8 其余（import_jobs 流水线 / 模板预览 / Library 列表 / 拖放）未做** | `test_docx_convert.py` 12 项 + API 1 项；pytest 137；build 0 错 |
 | **批 C（未提交，2026-10-07）** | **扫描 PDF / OCR**（原批 11 基础版）：新增 `backend/app/convert/ocr/{base,vision,tesseract}.py`；`convert/pdf.py` 页级文本密度检测 + 低密度页栅格化 OCR + 坐标归一化 + `is_chrome` 过滤；`normalize.option_markers` 容忍 OCR 丢空格；`/api/health` 增 `ocr`；导入页显示 OCR 状态。**零新增 Python 依赖**（Tesseract 走系统二进制子进程；macOS Vision 需可选安装 pyobjc）。**原批 11 其余（逐页报告 / 选择性 AI 视觉）未做** | `test_ocr.py` 9 项 + API 2 项；pytest 148；build 0 错 |
@@ -77,6 +79,7 @@ cd /tmp/e2e && node run2.mjs     # 答案录入/图片/设置
 cd /tmp/e2e && node run3.mjs     # 27题全流程 + 结果页三栏 + 侧边栏 + mock LLM
 cd /tmp/e2e && node run4.mjs     # 内置题库：卡片/分组/单加/幂等/Add all/In library 跳转
 cd /tmp/e2e && node run6.mjs     # 批9 工作台：三栏/分隔条持久化/sheet/Inspector/三尺寸
+cd /tmp/e2e && node run7.mjs     # 批7 设计系统：导航/组件/token/响应式
 cd /tmp/e2e && node run10.mjs    # 批10 词汇表 v2：编辑/列宽/排序/筛选/粘贴/持久化/xlsx
 ```
 

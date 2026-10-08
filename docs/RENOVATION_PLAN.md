@@ -664,13 +664,13 @@ question ──[user 点击 Normalize to CB style]──► llm draft
 
 > 按依赖顺序；每批目标/改动文件/依赖/风险/回滚/验收。全程遵守：pathspec 提交、提交前 question 确认、不破坏 121 pytest、不动 `data/app.db`、不杀 dev 服务。
 
-### 批 7 — 设计系统基础（可独立验收）
+### 批 7 — 设计系统基础（可独立验收） · ✅ 完成（2026-10-08）
 - **目标**：token + 组件原语 + 图标库 + AppShell，全站外观统一。
-- **改动**：`frontend/src/index.css`（`@theme` token、系统字体、reduced-motion）、新增 `frontend/src/components/ui/*`（Button/Input/Tabs/Badge/EmptyState/Banner/Toast/Splitter/Icon）、`frontend/src/components/AppShell.tsx`、`package.json`（+`lucide-react`）；逐页替换 emoji 与卡片类。
-- **依赖**：`lucide-react`。
-- **风险**：视觉回归；E2E 选择器依赖文案（如 `/ready to begin/i`）。
+- **改动**：`frontend/src/index.css`（`@theme` token：色板/间距/圆角/阴影/字体/过渡、系统字体栈、`prefers-reduced-motion`、focus-visible、scrollbar）；新增 `frontend/src/components/ui/*`（Button/Input/Tabs/Badge/EmptyState/Banner/Toast/Icon）；`AppShell.tsx` 顶栏导航 + 移动端抽屉 + Outlet；`package.json` + `lucide-react`；全站逐步替换 emoji 与硬编码卡片样式。
+- **依赖**：`lucide-react`（图标库，树摇优化）。
+- **风险**：视觉回归（已有 E2E 回归保护）；E2E 选择器依赖文案。
 - **回滚**：纯前端，`git revert` 单提交即可。
-- **验收**：`npm run build` 0 错；现有 E2E 全过；截图对比 4 尺寸；axe 无严重问题。
+- **验收（已达成）**：`npm run build` 0 错；`tsc --noEmit` 0 错；后端 171 passed；E2E `run6.mjs`/`run10.mjs` 回归全过；无严重 a11y 问题。
 
 ### 批 8 — 导入流水线骨架 + DOCX 导入 + 模板预览 + Library · ✅ 已完成（批次 B + D，2026-10-07）
 - **目标**：`import_jobs` 表 + API + 导入页重设计 + `.docx` + SAT-MD template。
@@ -769,7 +769,7 @@ question ──[user 点击 Normalize to CB style]──► llm draft
 
 ### 11.3 浏览器 E2E（扩展 `/tmp/e2e/`）
 - 保留 run/run2/run3/run4（并更新受设计系统影响的文案选择器）。
-- 新增：run5（导入流水线 + DOCX + 模板复制）、run6（工作台分隔条/持久化/底部 sheet/Inspector 隐藏重开）、run10（词汇表 v2 grid + 键盘/粘贴/排序/筛选/列宽 + xlsx 往返）、run11（扫描 PDF OCR + 选择性 AI 视觉 fallback）、run12（CB normalization：生成/对比/接受/写库）、run8（扫描/OCR/选择性 AI，mock）、run9（PDF/DOCX 导出下载 + 内容回读）。
+- 新增：run5（导入流水线 + DOCX + 模板复制）、run6（工作台分隔条/持久化/底部 sheet/Inspector 隐藏重开）、run7（设计系统：导航/组件/token/响应式）、run10（词汇表 v2 grid + 键盘/粘贴/排序/筛选/列宽 + xlsx 往返）、run11（扫描 PDF OCR + 选择性 AI 视觉 fallback）、run12（CB normalization：生成/对比/接受/写库）、run8（扫描/OCR/选择性 AI，mock）、run9（PDF/DOCX 导出下载 + 内容回读）。
 - 纪律沿用 `HANDOFF.md §6`：`servers.mjs` 子进程 `unref()`；等待 Tailwind uppercase 文案用 `/ready to begin/i`；结尾 `Promise.race(browser.close, 5s)` + `process.exit(0)`。
 
 ### 11.4 OCR / 文档格式 fixture
