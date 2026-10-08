@@ -95,12 +95,34 @@ sudo apt install libpango-1.0-0 libpangoft2-1.0-0 libcairo2 libgdk-pixbuf-2.0-0 
 
 ## 快速开始
 
+### macOS / Linux
+
 ```bash
 git clone https://github.com/JasonSun2009CN/SATeacher.git
 cd SATeacher
 
+# 首次运行：一键建环境 + 装依赖（可重复运行，幂等）
+./scripts/setup.sh
+
+# 启动开发环境（后端 :8000 + 前端 :5173）
 ./scripts/dev.sh
 ```
+
+### Windows (PowerShell)
+
+```powershell
+git clone https://github.com/JasonSun2009CN/SATeacher.git
+cd SATeacher
+
+# 首次运行：一键建环境 + 装依赖（可重复运行，幂等）
+.\scripts\setup.ps1
+
+# 启动开发环境（后端 :8000 + 前端 :5173）
+.\scripts\dev.ps1
+```
+
+> `scripts/setup.sh|.ps1` 会自动：创建 `.venv` → 安装后端依赖 → `npm install` → 检测可选依赖并给出安装提示 → 生成 `.env` 模板。  
+> `scripts/dev.sh|.ps1` 同时启动前后端，`Ctrl-C` 同时停止。
 
 `scripts/dev.sh` 会自动：创建 `.venv` → 安装后端依赖 → `npm install` → 同时启动前后端。看到下面两行即成功：
 
@@ -110,9 +132,10 @@ cd SATeacher
 按 `Ctrl-C` 同时停止两端。
 
 <details>
-<summary><b>不用 dev.sh 的手动启动方式</b></summary>
+<summary><b>不用 dev.sh / dev.ps1 的手动启动方式</b></summary>
 
 ```bash
+# macOS / Linux
 # 1) 后端（终端 A）
 python3 -m venv .venv
 . .venv/bin/activate
@@ -125,7 +148,19 @@ npm install
 npm run dev
 ```
 
-> 当前应用通过 Vite dev server 提供页面（后端只提供 `/api`）。`npm run build` 产出的 `frontend/dist/` 可用于类型检查与产物验证。
+```powershell
+# Windows (PowerShell)
+# 1) 后端（终端 A）
+python -m venv .venv
+. .venv\Scripts\Activate.ps1
+pip install -r backend\requirements.txt
+uvicorn app.main:app --app-dir backend --reload --port 8000
+
+# 2) 前端（终端 B）
+cd frontend
+npm install
+npm run dev
+```
 </details>
 
 ## 使用方法
