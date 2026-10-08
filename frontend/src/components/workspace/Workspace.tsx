@@ -45,6 +45,7 @@ interface Props {
   result: SubmitResult;
   t: number;
   onExplainSaved: (questionId: number, content: string) => void;
+  sessionId: number;
 }
 
 /**
@@ -52,7 +53,7 @@ interface Props {
  * (centre, the only scrolling content area) and a tabbed Study Inspector
  * (right), with a collapsible vocabulary sheet pinned along the bottom.
  */
-export default function Workspace({ detail, result, t, onExplainSaved }: Props) {
+export default function Workspace({ detail, result, t, onExplainSaved, sessionId }: Props) {
   const docId = detail.document_id;
   const [layout, setLayout] = useWorkspaceLayout(docId);
   const [filter, setFilter] = useState<Filter>("all");
@@ -422,6 +423,7 @@ export default function Workspace({ detail, result, t, onExplainSaved }: Props) 
                 onTab={(tab) => setLayout((l) => ({ ...l, inspectorTab: tab }))}
                 onClose={() => setLayout((l) => ({ ...l, inspectorOpen: false }))}
                 onExplainSaved={onExplainSaved}
+                sessionId={sessionId}
               />
             </div>
           </>
@@ -454,6 +456,7 @@ export default function Workspace({ detail, result, t, onExplainSaved }: Props) 
             onTab={(tab) => setLayout((l) => ({ ...l, inspectorTab: tab }))}
             onClose={() => setMobileInspector(false)}
             onExplainSaved={onExplainSaved}
+            sessionId={sessionId}
           />
         </Drawer>
       )}

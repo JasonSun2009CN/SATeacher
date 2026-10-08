@@ -11,6 +11,7 @@ interface Props {
   onTab: (tab: InspectorTab) => void;
   onClose: () => void;
   onExplainSaved: (questionId: number, content: string) => void;
+  sessionId?: number;
 }
 
 function errText(err: unknown): string {
@@ -25,7 +26,7 @@ const TABS: { key: InspectorTab; label: string }[] = [
 ];
 
 /** Right pane: a fixed, tabbed study inspector (not an accordion). */
-export default function Inspector({ docId, item, tab, onTab, onClose, onExplainSaved }: Props) {
+export default function Inspector({ docId, item, tab, onTab, onClose, onExplainSaved, sessionId }: Props) {
   const [draft, setDraft] = useState("");
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -68,7 +69,7 @@ export default function Inspector({ docId, item, tab, onTab, onClose, onExplainS
     setAiErr(null);
     setAiText(null);
     try {
-      const res = await api.askAI(docId, item.question_id);
+      const res = await api.askAI(docId, item.question_id, sessionId);
       setAiText(res.text);
     } catch (err) {
       setAiErr(errText(err));

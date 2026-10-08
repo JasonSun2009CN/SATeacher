@@ -28,6 +28,7 @@ SYSTEM = (
 class AnswerPayload(BaseModel):
     document_id: int
     question_id: int
+    session_id: int | None = None
 
 
 def _fail(message: str, status: int) -> None:
@@ -53,12 +54,34 @@ def ai_answer(payload: AnswerPayload) -> dict:
     if not llm.configured():
         _fail("no LLM API configured — add an API key and a model in Settings", 409)
 
-    # context engineering decision: question stem + correct option ONLY
-    # (no material, no user's choice, no hand-written explanation)
-    user = (
-        f"Question:\n{q['stem']}\n\n"
-        f"Correct answer: {q['answer']}. {_correct_option(q['options'], q['answer'])}"
-    )
+    # Get student's chosen answer if session_id provided
+    student_answer = None
+    if payload.session_id:
+        student_answer = repos.sessions.get_student_answer(payload.session_id, payload.question_id)
+
+    # Expanded context: material + stem + all options + correct answer + student's choice + section
+    opts_list = q["options"]  # list of 4 strings like ["A. one", "B. two", "C. three", "D. four"]
+    opts = {opt[0]: opt[3:].strip() for opt in opts_list if opt and opt[1] in ".．"}  # {"A": "one", "B": "two", ...}
+    correct_letter = q["answer"]
+    correct_text = _correct_option(opts_list, correct_letter)
+    student_letter = student_answer
+    student_text = _correct_option(opts_list, student_letter) if student_letter else None
+
+    user_parts = []
+    if q.get("material"):
+        user_parts.append(f"Material:\n{q['material']}")
+    user_parts.append(f"Question:\n{q['stem']}")
+    user_parts.append("Options:")
+    for letter in "ABCD":
+        if letter in opts:
+            prefix = "✓" if letter == correct_letter else ("→" if letter == student_letter else " ")
+            user_parts.append(f"  {prefix} {letter}. {opts[letter]}")
+    user_parts.append(f"\nCorrect answer: {correct_letter}. {correct_text}")
+    if student_letter and student_text:
+        user_parts.append(f"Your answer: {student_letter}. {student_text}")
+    user_parts.append(f"Section: {q['sec'].upper()} ({'Reading & Writing' if q['sec'] == 'rw' else 'Math'})")
+
+    user = "\n\n".join(user_parts)
     try:
         text = llm.complete(SYSTEM, [{"role": "user", "content": user}])
     except llm.LLMError as exc:

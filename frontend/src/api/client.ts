@@ -327,11 +327,11 @@ export const api = {
   exportUrl: (docId: number, fmt: "pdf" | "docx") =>
     `/api/documents/${docId}/export/${fmt}`,
 
-  /** Explicit AI call: context = question stem + correct option only. */
-  askAI: (docId: number, questionId: number) =>
+  /** Explicit AI call: context = material + stem + all options + correct answer + student's choice + section. */
+  askAI: (docId: number, questionId: number, sessionId?: number) =>
     request<{ text: string }>("/api/ai/answer", {
       method: "POST",
-      ...json({ document_id: docId, question_id: questionId }),
+      ...json({ document_id: docId, question_id: questionId, session_id: sessionId }),
     }),
 
   /** CB-style normalization: LLM rewrite with strict validation. */

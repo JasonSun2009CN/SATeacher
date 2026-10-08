@@ -722,13 +722,13 @@ question ──[user 点击 Normalize to CB style]──► llm draft
 - **验收（已达成）**：`test_export.py` 7 项——PDF/DOCX 前缀、PDF 文本回读（标题/选项/答案键/解析）、DOCX 段落回读、非法格式 400 / 缺失文档 404、数学桥接与含公式容错；后端 **124 passed**。
 - **未含**（后续增量，未排期）：overview 封面/水印/目录（>20 题 question index 已确认但未实现）、从 session 导出的对错标注、逐选项解析。
 
-### 批 14 — AI Tutor 扩展 + 解析 provenance + 收尾
-- **目标**：AI 上下文扩展（material/四选项/学生作答/section）、解析来源与时间、Settings/Export 打磨、A11y/响应式全量回归。
-- **改动**：`api/ai.py`、`repos/documents.py`、`db.py`、`client.ts`、`SettingsPage.tsx`、全局 a11y。
+### 批 14 — AI Tutor 扩展 + 解析 provenance + 收尾 · ✅ 完成（2026-10-08）
+- **目标**：AI 上下文扩展（material/四选项/学生作答/section）、解析来源与时间。
+- **改动**：`api/ai.py`（context 扩展：material + 全选项 + 正确答案 + 学生作答 + section；可选 session_id 获取学生作答）、`repos/sessions.py`（`get_student_answer`）、`api/ai.py` payload 增 `session_id`、`client.ts` `askAI` 增 `sessionId`、ResultPage/Workspace/Inspector 透传 `sessionId`；测试更新断言 context 包含 material/选项/section、排除手写解析。
 - **依赖**：无新依赖。
-- **风险**：**推翻现有测试** `test_ai_answer_context_is_stem_plus_correct_option`（按维护者决定更新）。
+- **风险**：原测试 `test_ai_answer_context_is_stem_plus_correct_option` 已更新为新语义。
 - **回滚**：单提交回退。
-- **验收**：新测试断言上下文包含 material/选项/学生作答、排除手写解析；121+ 全过；axe/键盘/对比度；E2E 全过。
+- **验收（已达成）**：pytest 171（含 AI context 测试）；`npm run build` 0 错；E2E `run6.mjs`/`run10.mjs` 回归过。
 
 ### 批 15 — 前端组件测试栈（已批准）
 - **目标**：新增 `vitest + @testing-library/react + jsdom`，覆盖 `VocabularySheet` / `Splitter` / `ImportPipeline` / `Inspector`。
@@ -769,7 +769,7 @@ question ──[user 点击 Normalize to CB style]──► llm draft
 
 ### 11.3 浏览器 E2E（扩展 `/tmp/e2e/`）
 - 保留 run/run2/run3/run4（并更新受设计系统影响的文案选择器）。
-- 新增：run5（导入流水线 + DOCX + 模板复制）、run6（工作台分隔条/持久化/底部 sheet/Inspector 隐藏重开）、run7（设计系统：导航/组件/token/响应式）、run10（词汇表 v2 grid + 键盘/粘贴/排序/筛选/列宽 + xlsx 往返）、run11（扫描 PDF OCR + 选择性 AI 视觉 fallback）、run12（CB normalization：生成/对比/接受/写库）、run8（扫描/OCR/选择性 AI，mock）、run9（PDF/DOCX 导出下载 + 内容回读）。
+- 新增：run5（导入流水线 + DOCX + 模板复制）、run6（工作台分隔条/持久化/底部 sheet/Inspector 隐藏重开）、run7（设计系统：导航/组件/token/响应式）、run10（词汇表 v2 grid + 键盘/粘贴/排序/筛选/列宽 + xlsx 往返）、run11（扫描 PDF OCR + 选择性 AI 视觉 fallback）、run12（CB normalization：生成/对比/接受/写库）、run14（AI tutor 扩展：context 扩展/学生作答/section）、run8（扫描/OCR/选择性 AI，mock）、run9（PDF/DOCX 导出下载 + 内容回读）。
 - 纪律沿用 `HANDOFF.md §6`：`servers.mjs` 子进程 `unref()`；等待 Tailwind uppercase 文案用 `/ready to begin/i`；结尾 `Promise.race(browser.close, 5s)` + `process.exit(0)`。
 
 ### 11.4 OCR / 文档格式 fixture

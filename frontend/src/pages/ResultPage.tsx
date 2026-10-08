@@ -52,6 +52,7 @@ export default function ResultPage() {
       detail={detail}
       result={result}
       t={t}
+      sessionId={sessionId}
       onExplainSaved={(questionId, content) =>
         setResult((r) =>
           r && {

@@ -211,7 +211,7 @@ def test_ai_answer_needs_key_then_config(client) -> None:
     assert "Settings" in no_config.json()["detail"]
 
 
-def test_ai_answer_context_is_stem_plus_correct_option(
+def test_ai_answer_context_includes_material_options_and_section(
     client, monkeypatch
 ) -> None:
     resp = upload(client, "ai-bank.sat.md", AI_BANK)
@@ -233,12 +233,20 @@ def test_ai_answer_context_is_stem_plus_correct_option(
     assert out.json()["text"].startswith("The data were")
 
     user = captured["messages"][0]["content"]
-    # context = question stem + correct option ONLY
+    # Expanded context: material + stem + all options + correct answer + section
     assert "Which choice best completes the sentence?" in user
     assert "Correct answer: B. two" in user
-    assert "scholar who counts bees" not in user, "material must not leak into context"
-    assert "private notes" not in user, "hand-written explain must not leak"
-    assert "A. one" not in user and "C. three" not in user and "D. four" not in user
+    # Material IS now included
+    assert "scholar who counts bees" in user
+    # All options ARE now included
+    assert "A. one" in user
+    assert "B. two" in user
+    assert "C. three" in user
+    assert "D. four" in user
+    # Section info
+    assert "Section: RW" in user or "Section: READING & WRITING" in user
+    # No hand-written explanation leaks
+    assert "private notes" not in user
     assert captured["messages"][0]["role"] == "user"
     assert "SAT tutor" in captured["system"]
 

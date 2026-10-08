@@ -129,3 +129,12 @@ def history(doc_id: int, limit: int = 20) -> list[dict]:
         }
         for r in rows
     ]
+
+
+def get_student_answer(session_id: int, question_id: int) -> str | None:
+    """Get the student's chosen answer for a question in a session."""
+    row = one(
+        "SELECT chosen FROM session_items WHERE session_id = ? AND question_id = ?",
+        (session_id, question_id),
+    )
+    return row["chosen"] if row else None
