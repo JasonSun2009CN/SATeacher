@@ -63,8 +63,8 @@
 - ✅ 统一 LLM 层：temperature 0、60s 超时、settings 驱动、有类型错误；OpenAI + Anthropic 双传输。
 
 ### 工程 / 测试
-- ✅ pytest **164**（parser / convert / bluebook / **docx 12 项** / **ocr 9 项** / **导入流水线 13 项** / **迁移 3 项** / builtin / llm base/fallback / api / **export 7 项** / regrade / review / settings）。
-- ✅ 浏览器 E2E `run6`（批 9 Workspace：三栏/分隔条持久化/sheet/Inspector/三尺寸）；`npm run build` 类型检查 + 构建。
+- ✅ pytest **171**（parser / convert / bluebook / **docx 12 项** / **ocr 9 项** / **导入流水线 13 项** / **迁移 3 项** / builtin / llm base/fallback / api / **export 7 项** / regrade / review / settings / **AI fallback 1 项**）。
+- ✅ 浏览器 E2E `run6`（批 9 Workspace：三栏/分隔条持久化/sheet/Inspector/三尺寸）；`run10`（批 10 词汇表 v2）；`npm run build` 类型检查 + 构建。
 
 ---
 
@@ -72,7 +72,7 @@
 
 | 领域 | 缺口 |
 |---|---|
-| 导入 | ~~DOCX 导入~~ **已交付（批次 B）**；~~扫描 PDF OCR 基础版~~ **已交付（批次 C）**；~~导入流水线（逐页状态/报告/取消）~~ **已交付（批次 D）**；~~`.sat.md` 模板预览~~ **已交付（批次 D）**；~~资料库列表化~~ **已交付（批次 D）** |
+| 导入 | ~~DOCX 导入~~ **已交付（批次 B）**；~~扫描 PDF OCR 基础版~~ **已交付（批次 C）**；~~导入流水线（逐页状态/报告/取消）~~ **已交付（批次 D）**；~~`.sat.md` 模板预览~~ **已交付（批次 D）**；~~资料库列表化~~ **已交付（批次 D）**；~~选择性 AI 视觉（仅失败页）~~ **已交付（批 11，2026-10-08）** |
 | 复盘 | ~~IDE 式工作台（可拖拽分隔条、布局持久化、可折叠底部 Vocabulary Sheet、Inspector 隐藏/重开、Tab 化）~~ **已交付（批次 9）** |
 | 词汇表 | ~~列 ID / 列宽 / 排序筛选偏好 / 稳定行 ID、冻结表头、粘贴填充、键盘导航（数据模型 v2）~~ **已交付（批 10，2026-10-08）** |
 | AI | 上下文扩展（material + 四选项 + 学生作答 + section）；解析来源/时间标注；CB-style 规范化 |
@@ -92,7 +92,7 @@
 | **M2 — 导入 2.0** | 8 | `import_jobs` 流水线（逐页状态/取消）、**DOCX 导入**、SAT-MD 模板预览、Library 列表重设计 | 🟡 **DOCX 导入已交付（批次 B）**；其余待做 |
 | **M3 — 复盘工作台** | 9 | IDE 式固定布局（可拖拽分隔条 + 持久化 + Inspector Tab + 底部 Vocabulary Sheet + 窄屏 drawer） | ✅ **已完成（批次 9，2026-10-07）** |
 | **M4 — 词汇表 v2** | 10 | 数据模型迁移（列 ID/宽度/行 ID/视图偏好）+ 电子表格（编辑/粘贴/冻结/排序/筛选）+ xlsx v2 | ✅ 已完成 |
-| **M5 — 扫描件 OCR** | 11 | 跨平台 OCR adapter（macOS Vision + 可选 Tesseract）+ 逐页报告 + 仅失败页 AI 兜底 | 🟡 **OCR adapter + 逐页报告已交付（批次 C/D）**；仅失败页 AI 视觉待做 |
+| **M5 — 扫描件 OCR** | 11 | 跨平台 OCR adapter（macOS Vision + 可选 Tesseract）+ 逐页报告 + 仅失败页 AI 兜底 | ✅ **已完成（批 11，2026-10-08）** |
 | **M6 — CB 规范化** | 12 | 显式**逐题**改写 → 并排审阅 → 接受/拒绝（答案与出处不变） | ⬜ |
 | **M7 — 导出包** | 13 | **PDF（WeasyPrint）+ DOCX（python-docx）** 正式模板 + 数学公式管线（MathJax SVG）；封面/目录为后续增量 | ✅ **已完成（批次 A）** |
 | **M8 — AI 升级** | 14 | AI 上下文扩展（material/四选项/学生作答/section）+ 解析来源与时间 + Settings/Export 打磨 + a11y 回归 | ⬜ |

@@ -221,7 +221,17 @@ def commit(result: ImportResult, builtin_key: str | None = None) -> int:
 # --------------------------------------------------------------------------
 
 
-def save_result(job_id: str, result: ImportResult) -> None:
+# Pages whose OCR status suggests the LLM might help.
+_AI_FALLBACK_STATUSES = {"ocr_unavailable", "ocr_failed", "low_confidence", "empty"}
+
+
+def _has_ai_fallback_pages(pages: list) -> bool:
+    return any(
+        getattr(p, "status", None) in _AI_FALLBACK_STATUSES for p in pages
+    )
+
+
+def save_result(job_id: str, result: ImportResult, original_pdf: Path | None = None) -> None:
     job_dir = jobs_dir(job_id)
     job_dir.mkdir(parents=True, exist_ok=True)
     (job_dir / "doc.sat.md").write_text(result.satmd, encoding="utf-8")
@@ -230,6 +240,13 @@ def save_result(job_id: str, result: ImportResult) -> None:
         assets.mkdir(exist_ok=True)
         for name, blob in result.assets.items():
             (assets / name).write_bytes(blob)
+
+    # Keep the original PDF for AI fallback if there are pages that might need it.
+    if original_pdf and original_pdf.is_file() and _has_ai_fallback_pages(result.pages):
+        target = job_dir / "original.pdf"
+        if not target.is_file():
+            shutil.copy2(original_pdf, target)
+
     meta = {
         "filename": result.filename,
         "kind": result.kind,
@@ -277,3 +294,78 @@ def load_result(job_id: str) -> ImportResult | None:
 
 def clear_result(job_id: str) -> None:
     shutil.rmtree(jobs_dir(job_id), ignore_errors=True)
+
+
+# --------------------------------------------------------------------------
+# AI fallback for specific pages
+# --------------------------------------------------------------------------
+
+
+def run_ai_fallback(job_id: str) -> ImportResult:
+    """Run LLM on pages that had OCR issues; merge results back into the job."""
+    result = load_result(job_id)
+    if result is None:
+        raise ImportProblem("staged result not found", 404)
+
+    job_dir = jobs_dir(job_id)
+    pdf_path = job_dir / "original.pdf"
+    if not pdf_path.is_file():
+        raise ImportProblem("no original PDF stored for AI fallback", 409)
+
+    # Identify pages that need AI help.
+    page_numbers = [p.no for p in result.pages if p.status in _AI_FALLBACK_STATUSES]
+    if not page_numbers:
+        return result  # nothing to do
+
+    # Use the LLM fallback to extract questions from those specific pages.
+    from app.convert import llm_fallback
+
+    warnings: list[str] = []
+    ai_result = llm_fallback.convert(pdf_path, result.title, warnings, page_numbers=page_numbers)
+
+    # Merge: replace the AI-processed pages' questions with the new ones.
+    # The ai_result already has questions from all pages it processed (only the
+    # requested ones). We need to merge with the deterministic result.
+    # Strategy: keep deterministic questions, add AI questions that don't duplicate.
+    # Since ai_result only processed specific pages, its questions are from those pages.
+    existing_nos = {q.no for q in result.pages if q.no is not None}
+    # Actually, ImportResult.pages is PageReport, not BuiltQuestion.
+    # The questions are in the satmd. We need to re-parse and merge satmd.
+
+    # Simpler: re-parse both satmds and merge questions by number.
+    from app.satmd.parser import parse as parse_satmd
+
+    deterministic_parsed = parse_satmd(result.satmd)
+    ai_parsed = parse_satmd(ai_result.satmd)
+
+    # Build a map of AI questions by number.
+    ai_q_map = {q.no: q for q in ai_parsed.questions if q.no is not None}
+
+    # Replace deterministic questions for the AI-processed pages with AI questions.
+    merged_questions: list = []
+    for q in deterministic_parsed.questions:
+        if q.no in ai_q_map:
+            merged_questions.append(ai_q_map.pop(q.no))
+        else:
+            merged_questions.append(q)
+    # Add any remaining AI questions (new numbers).
+    merged_questions.extend(ai_q_map.values())
+
+    # Re-assemble the merged satmd.
+    from app.convert.pdf import _assemble, _front_matter
+
+    all_assets = {**result.assets, **ai_result.assets}
+    merged = _assemble(
+        result.title,
+        result.filename,
+        merged_questions,
+        {**deterministic_parsed.answers, **ai_parsed.answers},
+        ai_result.used_ai or result.used_ai,
+        all_assets,
+        result.warnings + warnings + ["AI fallback processed pages: " + ", ".join(map(str, page_numbers))],
+    )
+
+    # Save updated result.
+    merged.used_ai = True
+    save_result(job_id, merged)
+    return merged

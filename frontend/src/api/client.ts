@@ -245,6 +245,10 @@ export const api = {
   deleteImport: (jobId: string) =>
     request<{ deleted: string }>(`/api/imports/${jobId}`, { method: "DELETE" }),
 
+  /** Trigger AI fallback for pages that had OCR issues. */
+  aiFallbackImport: (jobId: string) =>
+    request<ImportJob>(`/api/imports/${jobId}/ai-fallback`, { method: "POST" }),
+
   getDocument: (id: number) => request<DocumentSummary>(`/api/documents/${id}`),
 
   /** Built-in banks shipped with the app — discovered server-side. */

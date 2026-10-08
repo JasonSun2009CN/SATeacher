@@ -70,7 +70,14 @@ async def create_import(file: UploadFile = File(...)) -> dict:
         jobs_repo.update(job_id, status="failed", stage="convert", error=str(exc))
         return _payload(jobs_repo.get(job_id))
 
-    imports_service.save_result(job_id, result)
+    staged = imports_service._stage(filename, data)
+    try:
+        result = imports_service.convert_upload(filename, data)
+    except imports_service.ImportProblem as exc:
+        jobs_repo.update(job_id, status="failed", stage="convert", error=str(exc))
+        return _payload(jobs_repo.get(job_id))
+
+    imports_service.save_result(job_id, result, original_pdf=staged)
     pages = imports_service.pages_to_json(result.pages)
     jobs_repo.update(
         job_id,
@@ -141,11 +148,21 @@ def cancel_import(job_id: str) -> dict:
 
 @router.post("/{job_id}/ai-fallback")
 def ai_fallback(job_id: str) -> dict:
-    if jobs_repo.get(job_id) is None:
+    job = jobs_repo.get(job_id)
+    if job is None:
         _fail("import job not found", 404)
         raise                                          # pragma: no cover
-    _fail("AI fallback for unreadable pages is not available yet", 501)
-    raise                                              # pragma: no cover
+    try:
+        imports_service.run_ai_fallback(job_id)
+    except imports_service.ImportProblem as exc:
+        _fail(str(exc), exc.status)
+        raise                                          # pragma: no cover
+    except Exception as exc:  # pragma: no cover - unexpected errors
+        _fail(f"AI fallback failed: {exc}", 500)
+        raise
+
+    # Reload and return updated job.
+    return _payload(jobs_repo.get(job_id))
 
 
 @router.delete("/{job_id}")

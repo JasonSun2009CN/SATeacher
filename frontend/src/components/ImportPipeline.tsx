@@ -16,6 +16,8 @@ const PAGE_LABELS: Record<string, string> = {
   empty: "no text",
 };
 
+const AI_FALLBACK_STATUSES = ["ocr_unavailable", "ocr_failed", "low_confidence", "empty"];
+
 function pageTone(status: string): string {
   switch (status) {
     case "text":
@@ -39,9 +41,16 @@ interface Props {
   busy: boolean;
   onCommit: () => void;
   onCancel: () => void;
+  onAiFallback: () => void;
 }
 
-export default function ImportPipeline({ job, busy, onCommit, onCancel }: Props) {
+export default function ImportPipeline({
+  job,
+  busy,
+  onCommit,
+  onCancel,
+  onAiFallback,
+}: Props) {
   const activeIndex = Math.max(
     0,
     STAGES.findIndex((s) => s.key === job.stage),
@@ -141,6 +150,22 @@ export default function ImportPipeline({ job, busy, onCommit, onCancel }: Props)
             <li key={i}>{w}</li>
           ))}
         </ul>
+      )}
+
+      {job.status === "review" && job.pages.some((p) => AI_FALLBACK_STATUSES.includes(p.status)) && (
+        <div className="mt-4">
+          <button
+            onClick={onAiFallback}
+            disabled={busy}
+            className="rounded-lg bg-violet-600 px-4 py-2 font-medium text-white hover:bg-violet-700 disabled:opacity-50 flex items-center gap-2"
+          >
+            {busy ? "Running AI fallback…" : "Run AI fallback on unreadable pages"}
+          </button>
+          <p className="mt-1 text-xs text-slate-500">
+            Uses the configured LLM to extract questions from pages with OCR issues
+            ({job.pages.filter((p) => AI_FALLBACK_STATUSES.includes(p.status)).length} page{job.pages.filter((p) => AI_FALLBACK_STATUSES.includes(p.status)).length > 1 ? "s" : ""}).
+          </p>
+        </div>
       )}
 
       {job.status === "review" && (

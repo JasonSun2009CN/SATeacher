@@ -108,10 +108,12 @@ def test_empty_pdf_reports_a_failed_job(client) -> None:
     assert "no text could be extracted" in (job["error"] or "")
 
 
-def test_ai_fallback_is_not_available_yet(client) -> None:
+def test_ai_fallback_no_problematic_pages(client) -> None:
+    """AI fallback on a sat.md import (no OCR pages) returns job unchanged."""
     job = _create(client, "mini.sat.md", MINI_SATMD).json()
     resp = client.post(f"/api/imports/{job['id']}/ai-fallback")
-    assert resp.status_code == 501
+    # No original PDF stored for sat.md, and no problematic pages -> 409
+    assert resp.status_code == 409
 
 
 def test_get_unknown_job_is_404(client) -> None:

@@ -121,6 +121,19 @@ export default function ImportPage() {
     setJob(null);
   }
 
+  async function onAiFallback() {
+    if (!job) return;
+    setBusy(true);
+    try {
+      const updated = await api.aiFallbackImport(job.id);
+      setJob(updated);
+    } catch (err) {
+      setError(errText(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function onDelete(doc: DocumentSummary) {
     if (!window.confirm(`Delete "${doc.title}" and its ${doc.question_count} questions?`)) return;
     try {
@@ -223,6 +236,7 @@ export default function ImportPage() {
           busy={busy}
           onCommit={onCommit}
           onCancel={onCancelJob}
+          onAiFallback={onAiFallback}
         />
       )}
 

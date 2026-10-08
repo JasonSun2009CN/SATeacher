@@ -74,7 +74,7 @@ _PAGE_RE = re.compile(r"^=== page (\d+) ===")
 # --------------------------------------------------------------------------
 
 
-def _extract_pages(path: Path) -> tuple[list[str], int]:
+def _extract_pages(path: Path, page_numbers: list[int] | None = None) -> tuple[list[str], int]:
     """Return (page texts marked with page headers, image count)."""
     try:
         doc = pymupdf.open(path)
@@ -88,14 +88,17 @@ def _extract_pages(path: Path) -> tuple[list[str], int]:
         pages: list[str] = []
         images = 0
         for index in range(doc.page_count):
+            page_no = index + 1
+            if page_numbers is not None and page_no not in page_numbers:
+                continue
             page = doc.load_page(index)
             images += len(page.get_images(full=True))
             text = page.get_text("text", sort=True).strip()
             if text:
-                pages.append(f"=== page {index + 1} ===\n{text}")
+                pages.append(f"=== page {page_no} ===\n{text}")
         if not pages:
             raise ConvertError(
-                "no text could be extracted (the PDF may be a scanned image)",
+                "no text could be extracted from the selected pages",
                 fallback=False,
             )
         return pages, images
@@ -356,8 +359,10 @@ def _label_chunk(text: str, page_hint: int) -> tuple[list[dict], dict[int, str]]
 # --------------------------------------------------------------------------
 
 
-def convert(path: Path, title: str, warnings: list[str]) -> ConvertedDoc:
-    pages, images = _extract_pages(path)
+def convert(
+    path: Path, title: str, warnings: list[str], page_numbers: list[int] | None = None
+) -> ConvertedDoc:
+    pages, images = _extract_pages(path, page_numbers)
     questions: list[BuiltQuestion] = []
     answer_map: dict[int, str] = {}
 

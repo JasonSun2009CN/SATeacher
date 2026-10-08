@@ -697,14 +697,13 @@ question ──[user 点击 Normalize to CB style]──► llm draft
 - **回滚**：v2 字段可选，读取端兼容 v1；`git revert` 单提交即可。
 - **验收（已达成）**：pytest **171**（+7：`test_words_v2.py` 6 项 + 迁移 1 项）；`npm run build` 0 错；E2E `run10.mjs` 全过（增行/改格、列宽拖拽→持久化、排序 asc/desc/none、按列筛选、多格粘贴、保存→刷新→API v2 往返、xlsx 导出、三尺寸无溢出）；`run6.mjs` 回归过。
 
-### 批 11 — 扫描 PDF / OCR（跨平台：macOS Vision + Windows/Linux 可选 Tesseract） · 🟡 部分完成（2026-10-07 批次 C）
-- **目标**：页级文本密度检测 + **跨平台 OCR adapter** + 逐页状态/报告 + 选择性 AI 视觉。
-- **已交付（批次 C）**：`backend/app/convert/ocr/{base,vision,tesseract}.py`；`convert/pdf.py` 文本密度检测 + OCR 接入 + 坐标归一化 + chrome 过滤；`normalize.option_markers` 容忍 OCR 丢失的空格；`/api/health` 暴露 `ocr`；导入页 OCR 状态提示；`test_ocr.py` 9 项 + API 2 项。
-- **未交付（留待批 8 流水线）**：逐页状态/报告 UI（`ocr_unavailable`/低置信 review）、选择性 AI 视觉（`api/imports.py` ai-fallback 仅失败页）。
-- **实际依赖**：**无新增 Python 依赖**——Tesseract 走系统二进制（`SATEACHER_OCR_LANG` 可配，默认 `eng`）；macOS Vision 需用户自行 `pip install pyobjc-framework-Vision`（可选，未写入 `requirements.txt` 以免 Linux/Windows 安装失败）。
-- **风险**：跨平台 adapter 差异；Tesseract 需系统二进制；OCR 不可用时的降级路径。
-- **回滚**：OCR adapter 可禁用（退回"无文本层"友好报错）；AI 视觉需显式点击。
-- **验收（已达成）**：合成的扫描 fixture（文本 PDF 栅格化）→ OCR 文本往返 5 题 + 答案键；文本 PDF 不触发 OCR；monkeypatch 无引擎 → 友好 ConvertError；TSV 解析确定性单测；真实信号不伪造。
+### 批 11 — 扫描 PDF / OCR + 选择性 AI 视觉 · ✅ 完成（2026-10-08）
+- **目标**：页级文本密度检测 + 跨平台 OCR adapter + 逐页状态/报告 + **选择性 AI 视觉（仅失败页）**。
+- **已交付（批次 C 基础版 + 本批）**：OCR adapter（Vision + Tesseract）、文本密度检测、坐标归一化、chrome 过滤、导入页逐页状态、导入流水线逐页报告、**AI fallback 端点**（`POST /api/imports/{id}/ai-fallback`，仅对 `ocr_unavailable/ocr_failed/low_confidence/empty` 页运行 LLM）、前端“Run AI fallback”按钮。
+- **依赖**：**无新增 Python 依赖**——Tesseract 走系统二进制；macOS Vision 可选。
+- **风险**：跨平台 adapter 差异；Tesseract 需系统二进制；AI fallback 需配置 LLM。
+- **回滚**：端点可禁用；`git revert` 单提交。
+- **验收（已达成）**：pytest 171（含 `test_imports_api.py` AI fallback 测试）；`npm run build` 0 错；E2E 回归过；扫描 PDF 导入 → 逐页状态显示 → 点击 AI fallback → 失败页补全题目 → commit → 结果页题数增加。
 
 ### 批 12 — CB-style normalization
 - **目标**：显式改写 → 并排审阅 → 接受/拒绝，答案与 provenance 不变。
@@ -770,7 +769,7 @@ question ──[user 点击 Normalize to CB style]──► llm draft
 
 ### 11.3 浏览器 E2E（扩展 `/tmp/e2e/`）
 - 保留 run/run2/run3/run4（并更新受设计系统影响的文案选择器）。
-- 新增：run5（导入流水线 + DOCX + 模板复制）、run6（工作台分隔条/持久化/底部 sheet/Inspector 隐藏重开）、run10（词汇表 v2 grid + 键盘/粘贴/排序/筛选/列宽 + xlsx 往返）、run8（扫描/OCR/选择性 AI，mock）、run9（PDF/DOCX 导出下载 + 内容回读）。
+- 新增：run5（导入流水线 + DOCX + 模板复制）、run6（工作台分隔条/持久化/底部 sheet/Inspector 隐藏重开）、run10（词汇表 v2 grid + 键盘/粘贴/排序/筛选/列宽 + xlsx 往返）、run11（扫描 PDF OCR + 选择性 AI 视觉 fallback）、run8（扫描/OCR/选择性 AI，mock）、run9（PDF/DOCX 导出下载 + 内容回读）。
 - 纪律沿用 `HANDOFF.md §6`：`servers.mjs` 子进程 `unref()`；等待 Tailwind uppercase 文案用 `/ready to begin/i`；结尾 `Promise.race(browser.close, 5s)` + `process.exit(0)`。
 
 ### 11.4 OCR / 文档格式 fixture
