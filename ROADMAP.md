@@ -1,8 +1,8 @@
 # SATeacher — ROADMAP
 
 > 本地优先的 SAT 刷题工具：**导入 PDF/题库 → 补录答案 → Bluebook 风格全屏练习 → 错题复盘/知识点整理 → 生词本 → PDF/DOCX 导出**。
-> 状态快照：**2026-10-07** ｜ `HEAD=c108cfb` ｜ pytest **164 passed** ｜ E2E `run6`（Workspace）全过 ｜ `npm run build` 0 错误。
-> **最近交付：批次 A（PDF/DOCX 导出）+ 批次 B（DOCX 导入）+ 批次 C（扫描 PDF / OCR）+ 批次 D（导入流水线骨架）+ 批次 9（Review Workspace 外壳）已落地** —— 见 §1「导出」「导入」「复盘」、§3 M2/M3/M5/M7。
+> 状态快照：**2026-10-08** ｜ `HEAD=f314854` ｜ pytest **171 passed** ｜ E2E `run6`（Workspace）全过 ｜ `npm run build` 0 错误 ｜ `npm test` 38 passed 6 skipped。
+> **最近交付：批次 A（PDF/DOCX 导出）+ 批次 B（DOCX 导入）+ 批次 C（扫描 PDF / OCR）+ 批次 D（导入流水线骨架）+ 批次 9（Review Workspace 外壳）+ 批次 10（Vocabulary Sheet v2）+ 批次 11（扫描 PDF OCR + 选择性 AI 视觉）+ 批次 12（CB-style normalization）+ 批次 13（Review Pack 导出）+ 批次 14（AI Tutor 扩展）+ 批次 15（前端组件测试栈）+ 批次 16（可分发/跨平台 README+setup）**已落地** —— 见 §1「导出」「导入」「复盘」、§3 M1-M8/M10。
 > 相关文档：[`README.md`](README.md) · [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) · [`docs/PLAN.md`](docs/PLAN.md) · [`docs/SAT-MD.md`](docs/SAT-MD.md) · [`docs/RENOVATION_PLAN.md`](docs/RENOVATION_PLAN.md)
 
 ---
@@ -10,10 +10,10 @@
 ## 0. 指导原则（不变量）
 
 1. **LLM 不在导入主链路**：导入是确定性转换，**0 token**；AI 只在用户**显式点击**时调用。
-2. **本地优先**：数据全部在 `data/`（SQLite 单文件 + 文档/图片），无云依赖。
-3. **正确答案不出后端**：练习接口剥离 `answer`；仅提交/复盘返回。
-4. **界面全英文**；与维护者交流用中文；有疑问先问、不猜测。
-5. **可分发**：别人能直接拿去用，或读完 `README` 就会用（跨平台，不只 macOS）。
+3. **本地优先**：数据全部在 `data/`（SQLite 单文件 + 文档/图片），无云依赖。
+4. **正确答案不出后端**：练习接口剥离 `answer`；仅提交/复盘返回。
+5. **界面全英文**；与维护者交流用中文；有疑问先问、不猜测。
+6. **可分发**：别人能直接拿去用，或读完 `README` 就会用（跨平台，不只 macOS）。
 
 ---
 
@@ -55,7 +55,7 @@
 - ✅ 文档导出：**DOCX**（python-docx：标题/段落/答案键/解析/词汇表；公式经 cairosvg 转 PNG 内联）。
 - ✅ 词汇表导出：**.xlsx**（openpyxl；Numbers 可打开）。
 - ✅ 数学公式：**MathJax SVG** 管线；Node/桥接缺失时降级纯文本，导出不崩。
-- ⚠️ 旧的 **MD / CSV / JSON 导出已按维护者决定删除**。
+- ✅ 旧的 **MD / CSV / JSON 导出已按维护者决定删除**。
 - ❌ 尚未含：封面/水印、**>20 题 question index**、从 session 导出的对错标注（后续增量）。
 
 ### 设置 / LLM 层
@@ -63,8 +63,9 @@
 - ✅ 统一 LLM 层：temperature 0、60s 超时、settings 驱动、有类型错误；OpenAI + Anthropic 双传输。
 
 ### 工程 / 测试
-- ✅ pytest **171**（parser / convert / bluebook / **docx 12 项** / **ocr 9 项** / **导入流水线 13 项** / **迁移 3 项** / builtin / llm base/fallback / api / **export 7 项** / regrade / review / settings / **AI fallback 1 项**）。
+- ✅ pytest **171**（parser / convert / bluebook / **docx 12 项** / **ocr 9 项** / **导入流水线 13 项** / **迁移 3 项** / builtin / llm base/fallback / api / **export 7 项** / regrade / review / settings / **AI fallback 1 项** / **CB normalize 6 项** / **AI context 1 项** / **Vocab v2 6 项** / **AI fallback import 1 项**）。
 - ✅ 浏览器 E2E `run6`（批 9 Workspace：三栏/分隔条持久化/sheet/Inspector/三尺寸）；`run10`（批 10 词汇表 v2）；`npm run build` 类型检查 + 构建。
+- ✅ 前端组件测试（vitest + testing-library + jsdom）：**38 passed, 6 skipped**（Splitter / ImportPipeline / VocabGrid / Inspector）。
 
 ---
 
@@ -77,7 +78,7 @@
 | 词汇表 | ~~列 ID / 列宽 / 排序筛选偏好 / 稳定行 ID、冻结表头、粘贴填充、键盘导航（数据模型 v2）~~ **已交付（批 10，2026-10-08）** |
 | AI | ~~上下文扩展（material + 四选项 + 学生作答 + section）~~ **已交付（批 14，2026-10-08）**；解析来源/时间标注；~~CB-style 规范化~~ **已交付（批 12，2026-10-08）** |
 | 导出 | ~~PDF / DOCX 正式导出模板~~ **基础版已交付（批 A）**；余：封面/水印/目录、session 对错标注 |
-| 工程 | ~~设计系统（token/组件/图标）~~ **已交付（批 7，2026-10-08）**；前端组件测试；跨平台 + README 上手 |
+| 工程 | ~~设计系统（token/组件/图标）~~ **已交付（批 7，2026-10-08）**；~~前端组件测试~~ **已交付（批 15，2026-10-08）**；跨平台 + README 上手 |
 
 ---
 
@@ -96,9 +97,9 @@
 | **M6 — CB-style normalization** | 12 | 显式改写→并排审阅→接受/拒绝（答案不变、material 保留、A-D 完整、温度 0、显式触发） | ✅ **已完成（批 12，2026-10-08）** |
 | **M6 — CB 规范化** | 12 | 显式**逐题**改写 → 并排审阅 → 接受/拒绝（答案与出处不变） | ⬜ |
 | **M7 — 导出包** | 13 | **PDF（WeasyPrint）+ DOCX（python-docx）** 正式模板 + 数学公式管线（MathJax SVG）；封面/目录为后续增量 | ✅ **已完成（批次 A）** |
-| **M8 — AI 升级** | 14 | AI 上下文扩展（material/四选项/学生作答/section）+ 解析来源与时间 + Settings/Export 打磨 + a11y 回归 | ✅ **已完成（批 14，2026-10-08）** |
-| **M9 — 质量栈** | 15 | 前端组件测试（vitest + testing-library + jsdom） | ⬜ |
-| **M10 — 可分发** | 16 | `README` 重写（三平台安装→运行→首次导入→排错）+ `scripts/setup.*` + 依赖缺失友好降级 | ⬜ |
+| **M8 — AI 升级** | 14 | AI 上下文扩展 + 解析来源与时间 + Settings/Export 打磨 + a11y 回归 | ✅ **已完成（批 14，2026-10-08）** |
+| **M9 — 质量栈** | 15 | 前端组件测试 | ✅ **已完成（批 15，2026-10-08）** |
+| **M10 — 可分发** | 16 | `README` 重写 + `scripts/setup.*` + 依赖缺失友好降级 | ✅ **已完成（批 16，2026-10-08）** |
 
 ---
 
@@ -110,7 +111,7 @@
 | DOCX 导入 | 复用 PDF 的题号/选项/material-stem/答案键管线（0 token）；解析前做 **zip 安全校验**（条目数/解压总量/压缩比/宏）；仅内存读图片，不落盘解压 |
 | 数学公式（PDF/DOCX） | **已实现 MathJax SVG 管线**（PDF 内联 SVG；DOCX 经 cairosvg 转 PNG；缺失降级纯文本）；原 KaTeX spike 取消 |
 | OCR | **已实现（批次 C）**：**不只 macOS**——macOS 用 Vision（`pyobjc-framework-Vision`，可选），其他平台用系统 Tesseract（**子进程直调，零 Python 依赖、不强制安装**）；缺失时给可执行提示，绝不崩溃 |
-| 电子表格 | **react-data-grid**（MIT）；若与 React 19 不兼容则**回退自研**（已接受） |
+| 电子表格 | **自研 grid**（MIT）；react-data-grid 仍为 beta，回退自研已接受 |
 | AI 上下文 | **扩展**为题干 + material + 四选项 + 正确答案 + 学生所选 + section/type，并更新旧测试 |
 | token 提示 | 仅**定性**提示"可能消耗 token"，**不显示** token 数/价格 |
 | CB 规范化粒度 | **逐题** |
@@ -125,13 +126,18 @@
 
 ```bash
 # 后端测试（临时数据目录，不动 dev 数据）
-cd backend && ../.venv/bin/python -m pytest -q          # 基线 164 passed
+cd backend && ../.venv/bin/python -m pytest -q          # 基线 171
 
 # 前端类型检查 + 构建
 cd frontend && npm run build                            # 0 错误
 
+# 前端单元测试
+cd frontend && npm test                                 # 38 passed, 6 skipped
+
 # 端到端
 cd /tmp/e2e && node run.mjs                             # run2/run3/run4 同理
+cd /tmp/e2e && node run6.mjs                            # 批9 Workspace
+cd /tmp/e2e && node run10.mjs                           # 批10 词汇表 v2
 
 # 本地开发
 ./scripts/dev.sh                                        # 后端 :8000 + 前端 :5173
