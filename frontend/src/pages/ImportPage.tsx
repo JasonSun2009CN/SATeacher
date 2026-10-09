@@ -171,7 +171,10 @@ export default function ImportPage() {
     <div className="mx-auto max-w-5xl px-4 py-8">
       <header className="mb-8 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">SATeacher</h1>
+          <Link to="/" className="text-sm text-slate-500 underline hover:text-slate-700">
+            ← Back to exams
+          </Link>
+          <h1 className="mt-2 text-3xl font-bold tracking-tight">Manage</h1>
           <p className="mt-1 text-slate-600">
             Import a question bank (PDF, Word <code className="rounded bg-slate-200 px-1">.docx</code>, or{" "}
             <code className="rounded bg-slate-200 px-1">.sat.md</code>),

@@ -115,7 +115,7 @@ export default function AnswerKeyPage() {
           {error}
         </div>
         <Link to="/" className="mt-4 inline-block text-blue-700 underline">
-          Back to library
+          Back to exams
         </Link>
       </div>
     );
@@ -130,7 +130,7 @@ export default function AnswerKeyPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <Link to="/" className="text-sm text-blue-700 underline">
-            ← Library
+            ← Back to exams
           </Link>
           <h1 className="mt-1 text-2xl font-bold">Answer key · {doc.title}</h1>
           <p className="text-sm text-slate-600">

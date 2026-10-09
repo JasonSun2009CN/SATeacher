@@ -32,6 +32,7 @@ export default function PracticePage() {
   const [marked, setMarked] = useState<Set<number>>(new Set());
   const [seconds, setSeconds] = useState(0);
   const [confirming, setConfirming] = useState(false);
+  const [leaving, setLeaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   // React 18 StrictMode double-invokes effects in dev (setup -> cleanup ->
@@ -124,6 +125,12 @@ export default function PracticePage() {
     }
   }
 
+  /** Leave mid-exam: the session stays in the document's history unfinished. */
+  function leaveExam() {
+    setLeaving(false);
+    navigate("/");
+  }
+
   async function enter() {
     try {
       if (!document.fullscreenElement) {
@@ -138,7 +145,7 @@ export default function PracticePage() {
   // Bluebook-style shortcuts: A-D selects, arrows move.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (!session || !entered || confirming) return;
+      if (!session || !entered || confirming || leaving) return;
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA")) return;
       const q = questions[idx];
@@ -163,7 +170,7 @@ export default function PracticePage() {
           {error}
         </div>
         <Link to="/" className="mt-4 inline-block text-blue-700 underline">
-          Back to library
+          Back to exams
         </Link>
       </div>
     );
@@ -197,7 +204,7 @@ export default function PracticePage() {
             Enter answers first (optional)
           </Link>
           <Link to="/" className="mt-2 block text-sm text-slate-500 underline">
-            Back to library
+            Back to exams
           </Link>
         </div>
       </div>
@@ -229,6 +236,12 @@ export default function PracticePage() {
             <span className="rounded-md bg-slate-100 px-2.5 py-1 font-mono text-sm tabular-nums">
               {clock(seconds)}
             </span>
+            <button
+              onClick={() => setLeaving(true)}
+              className="rounded-lg border px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
+            >
+              Exit
+            </button>
             <button
               onClick={() => setConfirming(true)}
               className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
@@ -382,6 +395,31 @@ export default function PracticePage() {
                 className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
               >
                 {submitting ? "Grading…" : "Submit"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {leaving && (
+        <div className="fixed inset-0 z-30 grid place-items-center bg-slate-900/40 px-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <h2 className="text-lg font-semibold">Leave the exam?</h2>
+            <p className="mt-2 text-sm text-slate-600">
+              This attempt will be left unfinished — your answers so far are not submitted and
+              will not be graded. You can start a new attempt any time.
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={() => setLeaving(false)}
+                className="rounded-lg border px-4 py-2 text-sm font-medium hover:bg-slate-50"
+              >
+                Keep working
+              </button>
+              <button
+                onClick={leaveExam}
+                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
+              >
+                Leave exam
               </button>
             </div>
           </div>

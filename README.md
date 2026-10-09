@@ -169,20 +169,21 @@ npm run dev
 
 ### 1. 导入题库
 
-打开 <http://localhost:5173>（Import 页，即首页）。
+打开 <http://localhost:5173>，首页是 **Select an exam**（选卷开考列表，只列已导入的卷子）。管理功能（导入/题库/设置）收在右下角不起眼的 **Manage** 链接里（→ `/manage`）。
 
-1. **上传文件**：把文件拖到 *Drag a file here* 区域，或点 **choose a file**。
+1. 点右下角 **Manage** 进入管理页。
+2. **上传文件**：把文件拖到 *Drag a file here* 区域，或点 **choose a file**。
    支持 `PDF · DOCX · .md · .markdown · .sat.md`（≤ 60 MB；题目需带编号 `1.` `2.` …，每题四个选项）。
-2. **等待流水线跑完**：`detect → convert → review` 三阶段，附**逐页 PageReport**（该页是文本/OCR/低置信/无引擎）。
+3. **等待流水线跑完**：`detect → convert → review` 三阶段，附**逐页 PageReport**（该页是文本/OCR/低置信/无引擎）。
    - 转换结果干净 → 自动提交入库；
    - 有疑点 → 停在复核阶段，由你点 **Commit** 落库或 **Cancel** 取消（全程 0 token）。
-3. **（可选）用内置题库**：Import 页的题库卡展开后按日期分组列出 44 个单元，单个点 **Add**，或点 **Add all** 整库导入；已添加的显示 **✓ In library**，可直接跳到练习页。
-4. **查看 Library**：导入完成后页面下方的 Library 列出所有文档，每条有 **Practice** / **Answers** / **Delete** 三个入口。
+4. **（可选）用内置题库**：管理页的题库卡展开后按日期分组列出 44 个单元，单个点 **Add**，或点 **Add all** 整库导入；已添加的显示 **✓ In library**。
+5. **回首页开考**：返回 **Select an exam**，新导入的卷子直接点 **Start** 开考。
 
 <details>
 <summary>没有题库文件？自己写 SAT-MD</summary>
 
-Import 页的 *SatMdTemplate* 提供 `.sat.md` 模板（可复制/下载），按模板手写题目后上传即可导入。
+管理页的 *SatMdTemplate* 提供 `.sat.md` 模板（可复制/下载），按模板手写题目后上传即可导入。
 </details>
 
 ### 2. 录入答案
@@ -214,7 +215,7 @@ Library 中点 **Practice** 进入开始屏：
 - **统计面板**：Score（得分率）、Reading & Writing、Math、Time，以及 **Wrong answers** 错题 chips（点击直接跳到该题）；
 - **过滤 Tab**：`All` / `Correct` / `Wrong`；
 - **三栏布局**：左侧题号索引（状态色）→ 中间单题区（`←` `→` 键盘切题、`n / total`）→ 右侧常驻 **ReviewSidebar**；
-- 顶部按钮：**Practice again**（重做）/ **Back to library** / **Hide panel · Show panel**；
+- 顶部按钮：**Practice again**（重做）/ **Exams** / **Hide panel · Show panel**；
 - 文档没有答案键时，此处会先引导补录答案再判分。
 
 **ReviewSidebar（右侧工作区）**：
@@ -235,7 +236,7 @@ Library 中点 **Practice** 进入开始屏：
 
 ### 6. 设置 LLM
 
-**（可选）** 点击 Import 页右上角的 **⚙ Settings**（`/settings`）——**不配置也能完整使用**，只有 AI 讲解需要：
+**（可选）** 点击 管理页（/manage）右上角的 **⚙ Settings**（`/settings`）——**不配置也能完整使用**，只有 AI 讲解需要：
 
 1. **Provider** 下拉选择服务商（内置 16 家目录，含 Base URL 与默认模型）；
 2. **Base URL** 可覆盖（切 Provider 时仅在你没手改过的情况下自动填）；

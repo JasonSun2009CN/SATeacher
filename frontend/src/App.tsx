@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "./components/ui";
+import ExamHomePage from "./pages/ExamHomePage";
 import ImportPage from "./pages/ImportPage";
 import AnswerKeyPage from "./pages/AnswerKeyPage";
 import PracticePage from "./pages/PracticePage";
@@ -11,7 +12,9 @@ export default function App() {
     <BrowserRouter>
       <AppShell>
         <Routes>
-          <Route path="/" element={<ImportPage />} />
+          {/* Home is the exam picker; management is behind /manage (batch 17). */}
+          <Route path="/" element={<ExamHomePage />} />
+          <Route path="/manage" element={<ImportPage />} />
           <Route path="/doc/:id/answers" element={<AnswerKeyPage />} />
           <Route path="/doc/:id/practice" element={<PracticePage />} />
           <Route path="/session/:sid/result" element={<ResultPage />} />

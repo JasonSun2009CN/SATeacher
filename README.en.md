@@ -137,20 +137,21 @@ npm run dev
 
 ### 1. Import a question bank
 
-Open <http://localhost:5173> (the Import page, i.e. the home page).
+Open <http://localhost:5173>. The home page is **Select an exam** — it lists only imported exams, nothing else. Management (import / library / settings) sits behind the unobtrusive **Manage** link in the bottom-right corner (→ `/manage`).
 
-1. **Upload a file**: drop it onto *Drag a file here*, or click **choose a file**.
+1. Click **Manage** (bottom-right) to open the management page.
+2. **Upload a file**: drop it onto *Drag a file here*, or click **choose a file**.
    Supported: `PDF · DOCX · .md · .markdown · .sat.md` (≤ 60 MB; questions must be numbered `1.` `2.` … with four options each).
-2. **Watch the pipeline**: `detect → convert → review`, with a **per-page report** (text / OCR / low confidence / no engine).
+3. **Watch the pipeline**: `detect → convert → review`, with a **per-page report** (text / OCR / low confidence / no engine).
    - Clean conversion → committed automatically;
    - Anything suspicious → it stops for review; click **Commit** to save or **Cancel** to discard (0 tokens either way).
-3. **(Optional) Use the built-in bank**: expand the bank card on the Import page to see 44 date-grouped modules; click **Add** per module or **Add all** for the whole bank. Added modules show **✓ In library** and link straight to practice.
-4. **Check the Library**: the list below shows every document with **Practice** / **Answers** / **Delete**.
+4. **(Optional) Use the built-in bank**: expand the bank card on the management page to see 44 date-grouped modules; click **Add** per module or **Add all** for the whole bank. Added modules show **✓ In library**.
+5. **Back to home to start**: return to **Select an exam** and click **Start** on the new exam.
 
 <details>
 <summary>No question bank file? Write your own SAT-MD</summary>
 
-The *SatMdTemplate* on the Import page gives you a `.sat.md` template (copy or download), write questions by hand, then upload it.
+The *SatMdTemplate* on the management page gives you a `.sat.md` template (copy or download), write questions by hand, then upload it.
 </details>
 
 ### 2. Enter the answer key
@@ -182,7 +183,7 @@ Submitting takes you to `/session/:sid/result`:
 - **Stats panel**: Score, Reading & Writing, Math, Time, plus **Wrong answers** chips (click to jump to that question);
 - **Filter tabs**: `All` / `Correct` / `Wrong`;
 - **Three panes**: question index (left) → single question with `←` `→` keyboard navigation (center) → sticky **ReviewSidebar** (right);
-- Top buttons: **Practice again** / **Back to library** / **Hide panel · Show panel**;
+- Top buttons: **Practice again** / **Exams** / **Hide panel · Show panel**;
 - Documents without an answer key route you through key entry first, then regrade.
 
 **ReviewSidebar (right workspace)**:
@@ -203,7 +204,7 @@ Submitting takes you to `/session/:sid/result`:
 
 ### 6. LLM settings (optional)
 
-Open **⚙ Settings** (top-right of the Import page, `/settings`) — **the app works fully without it**; AI Answer is the only feature that needs it:
+Open **⚙ Settings** (bottom-right of the management page, `/settings`) — **the app works fully without it**; AI Answer is the only feature that needs it:
 
 1. Pick a **Provider** from the built-in catalog of 16 (Base URL and default model included);
 2. **Base URL** is overridable (switching providers only auto-fills it if you have not customized it);
@@ -215,10 +216,10 @@ Open **⚙ Settings** (top-right of the Import page, `/settings`) — **the app 
 
 | Feature | What it does | Install |
 |---|---|---|
-| **Scanned PDF OCR** | Per-page text-density detection; low-density pages are rasterized and recognized, coordinates normalized back into the same pipeline | Either system `tesseract` (`brew install tesseract` / `sudo apt install tesseract-ocr`, zero Python deps), or on macOS `pip install pyobjc-framework-Vision`. Without one, the Import page shows a hint — it never crashes |
+| **Scanned PDF OCR** | Per-page text-density detection; low-density pages are rasterized and recognized, coordinates normalized back into the same pipeline | Either system `tesseract` (`brew install tesseract` / `sudo apt install tesseract-ocr`, zero Python deps), or on macOS `pip install pyobjc-framework-Vision`. Without one, the management page shows a hint — it never crashes |
 | **Math in exports** | TeX → SVG (inline in PDF / PNG in DOCX) | `cd backend/app/export/mathjax && npm install` (needs Node; without it formulas **degrade to plain text** and export still succeeds) |
 
-The Import page shows the currently available OCR engines (from the `ocr` field of `/api/health`).
+The management page shows the currently available OCR engines (from the `ocr` field of `/api/health`).
 
 ## Configuration & environment variables
 

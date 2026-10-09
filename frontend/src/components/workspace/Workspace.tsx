@@ -159,7 +159,7 @@ export default function Workspace({ detail, result, t, onExplainSaved, sessionId
             to="/"
             className="hidden rounded-lg border px-3 py-1.5 text-sm font-medium hover:bg-slate-50 sm:block"
           >
-            Library
+            Exams
           </Link>
           {isDesktop ? (
             <button

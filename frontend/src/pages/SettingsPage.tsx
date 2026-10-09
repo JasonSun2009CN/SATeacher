@@ -118,8 +118,8 @@ export default function SettingsPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
-      <Link to="/" className="text-sm text-blue-700 underline">
-        ← Library
+      <Link to="/manage" className="text-sm text-blue-700 underline">
+        ← Manage
       </Link>
 
       <header className="mb-6 mt-4">

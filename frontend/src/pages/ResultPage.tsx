@@ -50,7 +50,7 @@ export default function ResultPage() {
           {error}
         </div>
         <Link to="/" className="mt-4 inline-block text-blue-700 underline">
-          Back to library
+          Back to exams
         </Link>
       </div>
     );
