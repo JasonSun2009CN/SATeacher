@@ -13,6 +13,7 @@ from pydantic import BaseModel
 
 from app import imports as imports_service
 from app import llm
+from app import normalize_jobs
 from app import repos
 from app.db import assets_dir
 from app.export import build_export, render_docx_bytes, render_pdf_bytes
@@ -154,8 +155,38 @@ def put_explain(doc_id: int, question_id: int, payload: ExplainPayload) -> dict:
 
 
 # --------------------------------------------------------------------------
-# CB-style normalization (batch 12)
+# CB-style normalization (batch 12; whole-document run added for the M6 UX)
 # --------------------------------------------------------------------------
+
+
+@router.post("/{doc_id}/normalize", status_code=202)
+def start_document_normalization(doc_id: int) -> dict:
+    """Normalize **every** question of the document in the background.
+
+    One LLM call per question, applied directly — there is no per-question
+    review step (the UI only shows progress). Poll the GET form of this path
+    until ``status`` leaves ``running``.
+    """
+    if repos.documents.get_document(doc_id) is None:
+        _fail("document not found", 404)
+        raise                                          # pragma: no cover
+    if not llm.configured():
+        _fail("no LLM configured — set API key and model in Settings", 409)
+        raise                                          # pragma: no cover
+    return normalize_jobs.start(doc_id)
+
+
+@router.get("/{doc_id}/normalize")
+def document_normalization_status(doc_id: int) -> dict:
+    """Progress/summary of the latest whole-document normalization run."""
+    if repos.documents.get_document(doc_id) is None:
+        _fail("document not found", 404)
+        raise                                          # pragma: no cover
+    job = normalize_jobs.get(doc_id)
+    if job is None:
+        _fail("no normalization has been run for this document", 404)
+        raise                                          # pragma: no cover
+    return job
 
 
 @router.post("/{doc_id}/questions/{question_id}/normalize")
@@ -176,21 +207,21 @@ def normalize_question(doc_id: int, question_id: int) -> dict:
         _fail("question not found", 404)
         raise                                          # pragma: no cover
 
-    # Need material, stem, options, answer, source_ref
-    # list_questions returns the right shape.
+    # Need material, stem, options, answer, source_ref.
+    # list_questions returns options as ["A. text", ...] — the LLM speaks dicts.
     material = q.get("material")
     stem = q.get("stem", "")
-    options = q.get("options", {})
-    answer = q.get("answer", "")
-    source_ref = q.get("source", "")
+    from app.llm import normalize as normalize_mod
 
-    if not stem or not options or answer not in {"A", "B", "C", "D"}:
+    options = normalize_mod.to_lettered(q.get("options") or [])
+    answer = q.get("answer") or ""
+    source_ref = q.get("source") or ""
+
+    if not stem or len(options) != 4 or answer not in {"A", "B", "C", "D"}:
         _fail("question missing required fields for normalization", 400)
         raise                                          # pragma: no cover
 
     try:
-        from app.llm import normalize as normalize_mod
-
         result = normalize_mod.normalize_question(
             material=material,
             stem=stem,
@@ -221,13 +252,24 @@ def accept_normalization(doc_id: int, question_id: int, payload: NormalizePayloa
         _fail("document not found", 404)
         raise                                          # pragma: no cover
 
+    # The route carries the numeric row id; the satmd block is keyed by #ext_id.
+    row = next(
+        (q for q in repos.documents.list_questions(doc_id) if q["id"] == question_id),
+        None,
+    )
+    if row is None:
+        _fail("question not found", 404)
+        raise                                          # pragma: no cover
+
     try:
         from app.llm import normalize as normalize_mod
 
-        return normalize_mod.accept_normalization(doc_id, question_id, payload.model_dump())
+        result = normalize_mod.apply_normalization(doc_id, row["ext_id"], payload.model_dump())
     except normalize_mod.NormalizeError as exc:
         _fail(str(exc), 422)
         raise                                          # pragma: no cover
+
+    return {"updated": question_id, "satmd": result["satmd"]}
 
 
 @router.get("/{doc_id}/words")

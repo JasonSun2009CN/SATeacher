@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { api, ApiError, type SessionDetail, type SubmitResult } from "../api/client";
 import Workspace from "../components/workspace/Workspace";
@@ -13,22 +13,35 @@ export default function ResultPage() {
   const [result, setResult] = useState<SubmitResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  /** ``reset`` blanks the view first (initial load); a silent reload just swaps
+   *  the data in place, so the workspace does not unmount mid-review. */
+  const load = useCallback(
+    (reset: boolean, signal?: { cancelled: boolean }) => {
+      if (reset) {
+        setDetail(null);
+        setResult(null);
+        setError(null);
+      }
+      Promise.all([api.getSession(sessionId), api.regradeSession(sessionId)])
+        .then(([d, r]) => {
+          if (signal?.cancelled) return;
+          setDetail(d);
+          setResult(r);
+        })
+        .catch(
+          (err) => !signal?.cancelled && setError(err instanceof ApiError ? err.message : String(err)),
+        );
+    },
+    [sessionId],
+  );
+
   useEffect(() => {
-    let cancelled = false;
-    setDetail(null);
-    setResult(null);
-    setError(null);
-    Promise.all([api.getSession(sessionId), api.regradeSession(sessionId)])
-      .then(([d, r]) => {
-        if (cancelled) return;
-        setDetail(d);
-        setResult(r);
-      })
-      .catch((err) => !cancelled && setError(err instanceof ApiError ? err.message : String(err)));
+    const signal = { cancelled: false };
+    load(true, signal);
     return () => {
-      cancelled = true;
+      signal.cancelled = true;
     };
-  }, [sessionId]);
+  }, [load]);
 
   if (error) {
     return (
@@ -53,6 +66,7 @@ export default function ResultPage() {
       result={result}
       t={t}
       sessionId={sessionId}
+      onReload={() => load(false)}
       onExplainSaved={(questionId, content) =>
         setResult((r) =>
           r && {

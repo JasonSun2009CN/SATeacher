@@ -138,13 +138,17 @@ export interface WordGrid {
   view: WordView;
 }
 
-/** Question text shape for CB-style normalization. */
-export interface QuestionText {
-  material: string | null;
-  stem: string;
-  options: Record<"A" | "B" | "C" | "D", string>;
-  answer: "A" | "B" | "C" | "D";
-  source_ref: string;
+/** Progress/summary of a whole-document normalization run. */
+export interface NormalizeJob {
+  doc_id: number;
+  status: "running" | "done" | "failed";
+  total: number;
+  done: number;
+  applied: number;
+  unchanged: number;
+  kept: number;
+  errors: string[];
+  error: string | null;
 }
 
 /** One module of a built-in bank, as listed on the import page. */
@@ -334,22 +338,14 @@ export const api = {
       ...json({ document_id: docId, question_id: questionId, session_id: sessionId }),
     }),
 
-  /** CB-style normalization: LLM rewrite with strict validation. */
-  normalizeQuestion: (docId: number, questionId: number) =>
-    request<{
-      original: QuestionText;
-      normalized: QuestionText;
-      changed: string[];
-      answer_preserved: boolean;
-      requires_review: boolean;
-    }>(`/api/documents/${docId}/questions/${questionId}/normalize`, { method: "POST" }),
+  /** Whole-document CB-style normalization: starts a background run (one LLM
+   *  call per question, applied directly — no per-question review). */
+  normalizeDocument: (docId: number) =>
+    request<NormalizeJob>(`/api/documents/${docId}/normalize`, { method: "POST" }),
 
-  /** Accept a previously generated normalization (re-validates invariants). */
-  acceptNormalization: (docId: number, questionId: number, normalized: QuestionText) =>
-    request<{ updated: number; satmd: string }>(
-      `/api/documents/${docId}/questions/${questionId}/normalize/accept`,
-      { method: "POST", ...json(normalized) },
-    ),
+  /** Progress/summary of the latest whole-document normalization run. */
+  getNormalizeJob: (docId: number) =>
+    request<NormalizeJob>(`/api/documents/${docId}/normalize`),
 
   history: (docId: number) =>
     request<

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, ApiError, type ResultItem } from "../../api/client";
-import NormalizeReview from "./NormalizeReview";
+import NormalizeAllPanel from "./NormalizeAllPanel";
 
 export type InspectorTab = "explain" | "ai" | "export" | "normalize";
 
@@ -12,6 +12,8 @@ interface Props {
   onClose: () => void;
   onExplainSaved: (questionId: number, content: string) => void;
   sessionId?: number;
+  /** Refetch questions after a whole-document normalization run. */
+  onReload?: () => void;
 }
 
 function errText(err: unknown): string {
@@ -26,7 +28,7 @@ const TABS: { key: InspectorTab; label: string }[] = [
 ];
 
 /** Right pane: a fixed, tabbed study inspector (not an accordion). */
-export default function Inspector({ docId, item, tab, onTab, onClose, onExplainSaved, sessionId }: Props) {
+export default function Inspector({ docId, item, tab, onTab, onClose, onExplainSaved, sessionId, onReload }: Props) {
   const [draft, setDraft] = useState("");
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -228,22 +230,7 @@ export default function Inspector({ docId, item, tab, onTab, onClose, onExplainS
 
         {tab === "normalize" && (
           <div>
-            {!item ? (
-              <p className="text-sm text-slate-500">Select a question in the list.</p>
-            ) : item.answer === null ? (
-              <p className="rounded bg-amber-50 px-2 py-1.5 text-xs text-amber-800">
-                No answer key for this question — enter the answers first.
-              </p>
-            ) : (
-              <NormalizeReview
-                docId={docId}
-                questionId={item.question_id}
-                onClose={() => onTab("explain")}
-                onAccepted={() => {
-                  /* refresh handled by parent via onExplainSaved? No, just close. */
-                }}
-              />
-            )}
+            <NormalizeAllPanel docId={docId} onReload={onReload} />
           </div>
         )}
       </div>

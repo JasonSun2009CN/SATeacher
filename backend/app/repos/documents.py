@@ -113,6 +113,31 @@ def insert_questions(doc_id: int, questions: list[Question]) -> None:
             )
 
 
+def update_questions(doc_id: int, questions: list[Question]) -> int:
+    """Persist rewritten text (material/stem/options) for the given questions.
+
+    Matched by ``ext_id``; only the text columns move — ``answer``,
+    ``source_ref`` and ``explain`` are untouched by design, so a normalization
+    can never alter answers or citations in the DB.
+    """
+    with db() as conn:
+        changed = 0
+        for q in questions:
+            cur = conn.execute(
+                "UPDATE questions SET material = ?, stem = ?, options_json = ?"
+                " WHERE document_id = ? AND ext_id = ?",
+                (
+                    q.material,
+                    q.stem,
+                    json.dumps(q.options, ensure_ascii=False),
+                    doc_id,
+                    q.ext_id,
+                ),
+            )
+            changed += cur.rowcount
+        return changed
+
+
 def get_document(doc_id: int) -> dict | None:
     from app.db import one
 

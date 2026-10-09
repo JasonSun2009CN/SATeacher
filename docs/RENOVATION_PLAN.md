@@ -532,13 +532,16 @@ GET /api/documents/{id}/export/docx       → ...wordprocessingml.document
 GET /api/documents/{id}/words/export      （.xlsx，v2 增强）
 ```
 
-**CB-style normalization（显式、可审阅）**：
+**CB-style normalization（显式、整卷批量，无逐题审阅）**：
 ```jsonc
+// POST /api/documents/{id}/normalize            → 202 { "doc_id", "status": "running", ... }
+//   后台逐题 LLM 改写并直接落库（temperature=0，逐题串行）
+// GET  /api/documents/{id}/normalize            → 轮询 { "status": "running|done|failed",
+//     "total", "done", "applied", "unchanged", "kept", "errors": ["#Q007: ..."] }
+//   失败/校验不过的题保留原文；answers/source/explain 列永不触碰
+// 单题端点（API 兼容，UI 不再使用）：
 // POST /api/documents/{id}/questions/{qid}/normalize
-// → { "original": {...}, "normalized": {...}, "changed": ["stem","A","B"],
-//     "answer_preserved": true, "requires_review": true }
 // POST /api/documents/{id}/questions/{qid}/normalize/accept { "normalized": {...} }
-// → 校验后写库（题干+四选项），答案与 provenance 保留
 ```
 
 ---
@@ -709,13 +712,15 @@ question ──[user 点击 Normalize to CB style]──► llm draft
 - **回滚**：端点可禁用；`git revert` 单提交。
 - **验收（已达成）**：pytest 171（含 `test_imports_api.py` AI fallback 测试）；`npm run build` 0 错；E2E 回归过；扫描 PDF 导入 → 逐页状态显示 → 点击 AI fallback → 失败页补全题目 → commit → 结果页题数增加。
 
-### 批 12 — CB-style normalization · ✅ 完成（2026-10-08）
-- **目标**：显式改写 → 并排审阅 → 接受/拒绝，答案与 provenance 不变。
-- **改动**：新增 `backend/app/llm/normalize.py`（prompt + 严格校验：答案不变、material 保留、options 仅 A-D）；`api/documents.py` 新增 `POST /normalize`（生成并返回 diff）与 `POST /normalize/accept`（二次校验后写库）；前端 `workspace/NormalizeReview.tsx`（左右对比、可编辑、高亮差异、Regenerate/Accept/Cancel），集成到 `Inspector.tsx` 的 "Normalize" Tab；`client.ts` 增 `normalizeQuestion/acceptNormalization`；`usePersistentLayout` 的 `inspectorTab` 增加 "normalize"。
+### 批 12 — CB-style normalization · ✅ 完成（2026-10-08；2026-10-09 按用户反馈改为整卷批量）
+- **目标**：显式改写，答案与 provenance 不变。
+- **最终交付（批 12b，用户反馈"100 多题逐题接受太麻烦"）**：**一键整卷改写直接落库，无逐题审阅**——`POST /api/documents/{id}/normalize`（202）后台线程逐题串行改写并即时应用，`GET` 同路径轮询进度；失败/校验不过的题保留原文并列出原因。
+- **实现**：`llm/normalize.py` `normalize_document()`（逐题调用 LLM + `_verify_block` 重解析闸门）；`satmd/writer.py`（`ParsedDoc→text` 反序列化器，round-trip 测试锁死）；`repos/documents.py` `update_questions()`（只写 material/stem/options，**答案/出处/解析列永不触碰**）；`normalize_jobs.py`（进程内 job registry，单飞，后台 `Thread`）；前端 `NormalizeAllPanel.tsx`（进度条 + 汇总 + 失败清单），完成后 `ResultPage` 静默重取题目（不闪白屏）。批 12 原单题端点保留但 UI 不再使用；`NormalizeReview.tsx` 已删。
+- **修复的批 12 遗留 bug**（当时零测试未暴露）：options 列表/字典混用、`_render_question` 吃错数据类（`BuiltQuestion`）、`repos.documents.update_questions` 不存在——三处均会导致运行时 500。
 - **依赖**：无新依赖（复用现有 LLM 层，temperature=0）。
-- **风险**：改写改变答案/事实（双重校验拦截：生成时 + 接受时）；token 成本（显式点击触发）。
+- **风险**：改写改变答案/事实（多重校验拦截：形状 + 不变量 + 重解析）；token 成本（显式点击触发，逐题计数可核对）；100+ 题耗时数分钟（进度条 + 单飞防重复点击）。
 - **回滚**：端点可禁用；`git revert` 单提交；不改动原题。
-- **验收（已达成）**：pytest 171；`npm run build` 0 错；E2E `run6.mjs`/`run10.mjs` 回归过；Inspector 新增 Normalize Tab，可生成→对比→接受→写库。
+- **验收（已达成）**：pytest 188（`test_normalize_api.py` 14 项 + `test_satmd_writer.py` 4 项）；`tsc --noEmit` 0 错；`npm test` 43 过；E2E 回归过。
 
 ### 批 13 — Review Pack 导出（PDF/DOCX + 数学管线） · ✅ 已完成（2026-10-07，作为"批次 A"）
 - **目标**：正式 PDF/DOCX 模板 + 数学渲染 + 测试。
@@ -761,7 +766,7 @@ question ──[user 点击 Normalize to CB style]──► llm draft
 - `test_imports_api.py`：job 状态机、逐页报告、取消、commit、幂等。
 - `test_docx_convert.py`：段落/表格/图片/公式抽取 → satmd；畸形/超大 zip 防护。✅ **已实现（批次 B）**
 - `test_ocr.py`：合成扫描 fixture（用 PyMuPDF 把文本 PDF 栅格化为图片 PDF）→ OCR 文本；低置信分支；无 adapter 分支。
-- `test_normalize.py`：答案不变、恰 A–D、material 保留、非法草稿拒绝。
+- `test_normalize_api.py`：整卷批量（应用/保留原文/答案不变/无答案跳过不花 token/409/404）、单题 accept 回归、`test_satmd_writer.py` round-trip。✅ **已实现（批 12b）**
 - `test_export_pdf_docx.py`：导出字节前缀 + 回读（`pypdf`/`python-docx`/`openpyxl`）；分页与水印断言。
 - `test_words_v2.py`：v1→v2 迁移往返、列宽/行 ID/view 持久化、上限校验。
 - 迁移：`test_migrations.py`（老 schema → user_version 升级幂等）。

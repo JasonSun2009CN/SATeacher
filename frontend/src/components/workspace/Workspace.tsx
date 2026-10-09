@@ -46,6 +46,8 @@ interface Props {
   t: number;
   onExplainSaved: (questionId: number, content: string) => void;
   sessionId: number;
+  /** Refetch session questions (e.g. after a document-wide normalization). */
+  onReload: () => void;
 }
 
 /**
@@ -53,7 +55,7 @@ interface Props {
  * (centre, the only scrolling content area) and a tabbed Study Inspector
  * (right), with a collapsible vocabulary sheet pinned along the bottom.
  */
-export default function Workspace({ detail, result, t, onExplainSaved, sessionId }: Props) {
+export default function Workspace({ detail, result, t, onExplainSaved, sessionId, onReload }: Props) {
   const docId = detail.document_id;
   const [layout, setLayout] = useWorkspaceLayout(docId);
   const [filter, setFilter] = useState<Filter>("all");
@@ -424,6 +426,7 @@ export default function Workspace({ detail, result, t, onExplainSaved, sessionId
                 onClose={() => setLayout((l) => ({ ...l, inspectorOpen: false }))}
                 onExplainSaved={onExplainSaved}
                 sessionId={sessionId}
+                onReload={onReload}
               />
             </div>
           </>
@@ -457,6 +460,7 @@ export default function Workspace({ detail, result, t, onExplainSaved, sessionId
             onClose={() => setMobileInspector(false)}
             onExplainSaved={onExplainSaved}
             sessionId={sessionId}
+            onReload={onReload}
           />
         </Drawer>
       )}

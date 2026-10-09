@@ -5,7 +5,8 @@ import type { ResultItem } from "../../api/client";
 
 // Use vi.hoisted for mocks that need to be available in vi.mock factory
 const mockApi = vi.hoisted(() => ({
-  normalizeQuestion: vi.fn(),
+  normalizeDocument: vi.fn(),
+  getNormalizeJob: vi.fn(),
   askAI: vi.fn(),
   saveExplain: vi.fn(),
   getSession: vi.fn(),
@@ -160,30 +161,7 @@ describe("Inspector", () => {
     // Note: actual API call is mocked, just verify button click works
   });
 
-  it.skip("shows Normalize tab content (async loading state needs fixing)", async () => {
-    const mockNormalizeResponse = {
-      original: {
-        material: "Test material",
-        stem: "Test question?",
-        options: { A: "Option A", B: "Option B", C: "Option C", D: "Option D" },
-        answer: "A" as const,
-        source_ref: "p.1",
-      },
-      normalized: {
-        material: "Test material",
-        stem: "Normalized question?",
-        options: { A: "Option A", B: "Option B", C: "Option C", D: "Option D" },
-        answer: "A" as const,
-        source_ref: "p.1",
-      },
-      changed: ["stem"],
-      answer_preserved: true,
-      requires_review: true,
-    };
-
-    const { api: mockedApi } = await import("../../api/client");
-    vi.mocked(mockedApi.normalizeQuestion).mockResolvedValue(mockNormalizeResponse);
-
+  it("shows the whole-document Normalize panel", () => {
     render(
       <Inspector
         docId={1}
@@ -195,10 +173,8 @@ describe("Inspector", () => {
       />
     );
 
-    // Wait for loading to complete
-    await waitFor(() => {
-      expect(screen.getByText("Review Normalization")).toBeInTheDocument();
-    });
+    expect(screen.getByText(/Rewrites every question in College Board style/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Normalize whole document" })).toBeEnabled();
   });
 
   it("shows Export tab with PDF and DOCX links", () => {
